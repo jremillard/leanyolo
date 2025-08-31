@@ -58,7 +58,7 @@ class YOLOv10(nn.Module):
 
     def _init_head_bias(self) -> None:
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) and m.out_channels in (4,):
+            if isinstance(m, nn.Conv2d) and m.out_channels in (4,) and m.bias is not None:
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
@@ -66,4 +66,3 @@ class YOLOv10(nn.Module):
         p3, p4, p5 = self.neck(c3, c4, c5)
         out = self.head((p3, p4, p5))
         return out
-

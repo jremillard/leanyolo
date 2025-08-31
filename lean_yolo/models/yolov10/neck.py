@@ -28,8 +28,8 @@ class YOLOv10Neck(nn.Module):
         self.p4_to_p3 = C2f(c(256) + c3, c(128), n=d(3))
 
         # Bottom-up pathway
-        self.p3_to_p4 = C2f(c(128) + c(128), c(256), n=d(3))
-        self.p4_to_p5 = C2f(c(256) + c(256), c(512), n=d(3))
+        self.p3_to_p4 = C2f(c(128) + c(256), c(256), n=d(3))
+        self.p4_to_p5 = C2f(c(256) + c(512), c(512), n=d(3))
 
         # Downsample convs for PAN
         self.down_p3 = Conv(c(128), c(128), 3, 2)
@@ -54,4 +54,3 @@ class YOLOv10Neck(nn.Module):
         p5 = self.p4_to_p5(torch.cat([down4, p5], dim=1))
 
         return p3, p4, p5
-

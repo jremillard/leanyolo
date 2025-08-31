@@ -9,7 +9,7 @@ import torch.nn as nn
 from .yolov10.model import YOLOv10
 import warnings
 from ..utils.weights import WeightsEntry, WeightsResolver
-from ..utils.remap import adapt_state_dict_for_lean
+from ..utils.remap import adapt_state_dict_for_lean, remap_official_yolov10_to_lean
 
 
 # Model registry (name -> builder)
@@ -185,9 +185,11 @@ def get_model(
     if weights:
         try:
             entry = _YOLOv10Weights().get(name, weights)
-            state_dict = entry.get_state_dict(progress=True)
-            # Lightweight remap for official checkpoints (unwrap + strip prefixes)
-            state_dict = adapt_state_dict_for_lean(state_dict)
+            loaded_obj = entry.get_state_dict(progress=True)
+            # Attempt high-fidelity mapping from official to lean architecture
+            mapped = remap_official_yolov10_to_lean(loaded_obj, model)
+            # Fallback to simple unwrap if mapping yielded nothing
+            state_dict = mapped if mapped else adapt_state_dict_for_lean(loaded_obj)
             missing, unexpected = model.load_state_dict(state_dict, strict=False)
             if unexpected:
                 warnings.warn(
