@@ -9,7 +9,11 @@ import torch.nn as nn
 from .yolov10.model import YOLOv10
 import warnings
 from ..utils.weights import WeightsEntry, WeightsResolver
-from ..utils.remap import adapt_state_dict_for_lean, remap_official_yolov10_to_lean
+from ..utils.remap import (
+    adapt_state_dict_for_lean,
+    remap_official_yolov10_to_lean,
+    extract_state_dict,
+)
 
 
 # Model registry (name -> builder)
@@ -190,7 +194,23 @@ def get_model(
             mapped = remap_official_yolov10_to_lean(loaded_obj, model)
             # Fallback to simple unwrap if mapping yielded nothing
             state_dict = mapped if mapped else adapt_state_dict_for_lean(loaded_obj)
+            # Load and collect stats
             missing, unexpected = model.load_state_dict(state_dict, strict=False)
+            try:
+                src_sd = extract_state_dict(loaded_obj)
+                src_total = sum(1 for v in src_sd.values() if isinstance(v, torch.Tensor)) or 1
+                used_src = sum(1 for v in state_dict.values() if isinstance(v, torch.Tensor))
+                dst_total = sum(1 for _ in model.state_dict().keys()) or 1
+                dst_loaded = dst_total - len(missing)
+                pct_src = 100.0 * used_src / src_total
+                pct_dst = 100.0 * dst_loaded / dst_total
+                warnings.warn(
+                    f"Weights loaded: {used_src}/{src_total} from file ({pct_src:.1f}%), "
+                    f"filled model: {dst_loaded}/{dst_total} params ({pct_dst:.1f}%).",
+                    RuntimeWarning,
+                )
+            except Exception:
+                pass
             if unexpected:
                 warnings.warn(
                     f"Unexpected keys when loading weights: {sorted(unexpected)[:10]}...",

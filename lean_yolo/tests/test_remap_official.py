@@ -43,11 +43,9 @@ def test_remap_covers_majority_of_params(tmp_path):
     # Remap
     mapped = remap_official_yolov10_to_lean(loaded, model)
 
-    # Expect at least 5% of parameters (by count of tensors) to be mappable by shape
-    # Note: Our lean model differs architecturally from the official model, so only
-    # early layers are expected to align one-to-one.
+    # Expect at least 30% of params to be mappable thanks to name-based remap
     coverage = len(mapped) / max(len(dst_sd), 1)
-    assert coverage > 0.05, f"Remap coverage too low: {coverage:.2%}"
+    assert coverage > 0.30, f"Remap coverage too low: {coverage:.2%}"
 
 
 def test_first_conv_maps_identically(tmp_path):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 import torch
+from .keymap import remap_official_keys_by_name
 
 
 POSSIBLE_STATE_KEYS = (
@@ -140,7 +141,20 @@ def remap_official_yolov10_to_lean(loaded_obj: Dict, dst_model: torch.nn.Module)
     - Strip common prefixes (module./model.).
     - Heuristically align by matching shapes in iteration order.
     """
-    src_sd = adapt_state_dict_for_lean(loaded_obj)
+    # 1) Get raw official state dict (handles wrapped ckpt objects)
+    raw_src = extract_state_dict(loaded_obj)
     dst_sd = dst_model.state_dict()
-    mapped = remap_by_shape(src_sd, dst_sd)
-    return mapped
+
+    # 2) Deterministic mapping by layer indices/prefix names
+    # Deterministic rename and filter by shape compatibility
+    nm_raw = remap_official_keys_by_name(raw_src, dst_sd)
+    name_mapped = {k: v for k, v in nm_raw.items() if isinstance(v, torch.Tensor) and v.shape == dst_sd[k].shape}
+
+    # 3) Fallback: strip prefixes then fill remaining by shape
+    stripped = strip_common_prefixes({k: v for k, v in raw_src.items() if isinstance(v, torch.Tensor)})
+    remaining_dst = {k: v for k, v in dst_sd.items() if k not in name_mapped}
+    shape_fill = remap_by_shape(stripped, remaining_dst)
+
+    out = dict(name_mapped)
+    out.update(shape_fill)
+    return out
