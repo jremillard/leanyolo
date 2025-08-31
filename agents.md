@@ -22,7 +22,7 @@ Key capabilities
 - numpy, pillow, opencv-python, tqdm, matplotlib, pycocotools
 - COCO dataset format for data and class definitions
 
-Note: Pretrained weights come from the official THU-MIG/yolov10 releases. This project prioritizes exact compatibility; when necessary to guarantee 100% parity, the official YOLOv10 architecture is used under the hood for model construction and execution.
+Note: Pretrained weights come from the official THU-MIG/yolov10 releases. This project prioritizes exact compatibility without any runtime dependency on the official implementation. The official repository is used only as a reference for side‑by‑side testing, creating unit tests, and study.
 
 ## Project Structure
 

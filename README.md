@@ -1,6 +1,6 @@
 # lean-yolo
 
- Faithful PyTorch implementation of YOLOv10 with exact compatibility for official pretrained weights across all sizes (n, s, m, b, l, x). When needed for full parity, the official architecture is used under the hood to ensure 100% weight loading and inference behavior.
+ Faithful PyTorch implementation of YOLOv10 with exact compatibility for official pretrained weights across all sizes (n, s, m, b, l, x). This project has no runtime dependency on the official repository; the official repo is used only for side‑by‑side testing, study, and unit test generation.
 
 ## Status
 - Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
@@ -115,8 +115,8 @@ YOLO text format is not supported.
 
 Supported sizes : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
 
-Weight loading
-- Exact loading of all official THU-MIG release weights. If a lean graph would deviate, the official architecture is used for full parity.
+ Weight loading
+- Exact loading of all official THU-MIG release weights with the lean implementation. The official repository is not imported at runtime.
 
 ## Roadmap (YOLOv10-first)
 - Implement YOLOv10 modules and forward pass

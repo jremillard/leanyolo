@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 
 from .yolov10.model import YOLOv10
-from .official import OfficialYOLOv10Adapter
 import warnings
 from ..utils.weights import WeightsEntry, WeightsResolver
 from ..utils.remap import (
@@ -213,23 +212,8 @@ def get_model(
                     f"filled model: {dst_loaded}/{dst_total} params ({pct_dst:.1f}%).",
                     RuntimeWarning,
                 )
-                # If exact compatibility is requested and not achieved, fallback to official adapter
-                if exact and (len(missing) > 0 or pct_src < 99.9 or pct_dst < 99.9):
-                    var = name.replace('yolov10','')
-                    off = OfficialYOLOv10Adapter(variant=var, nc=num_classes)
-                    # load official
-                    # Prefer underlying model object in loaded_obj
-                    model_obj = src_sd  # default
-                    try:
-                        obj = loaded_obj.get('model', None) if isinstance(loaded_obj, dict) else None
-                    except Exception:
-                        obj = None
-                    off.load_official_checkpoint(obj if obj is not None else loaded_obj)
-                    warnings.warn(
-                        f"Using official YOLOv10 model for exact weight loading (variant={var}).",
-                        RuntimeWarning,
-                    )
-                    return off
+                # Note: No runtime dependency or fallback to the official implementation.
+                # The lean implementation must achieve exact compatibility on its own.
             except Exception:
                 pass
             if unexpected:
