@@ -18,27 +18,13 @@ class YOLOv10m(nn.Module):
     TYPES = {"c6": "C2f", "c8": "C2fCIB", "p5_p4": "C2f", "p3_p4": "C2fCIB", "p4_p5": "C2fCIB"}
     LK = {"c8": False, "p5_p4": False, "p4_p5": False}
 
-    def __init__(self, num_classes: int = 80, in_channels: int = 3):
+    def __init__(self, *, num_classes: int, in_channels: int):
         super().__init__()
         cfg = SimpleNamespace(CH=self.CH, HCH=self.HCH, reps=self.REPS, types=self.TYPES, lk=self.LK)
 
-        self.backbone = YOLOv10Backbone(
-            in_channels=in_channels,
-            width_mult=0.75,
-            depth_mult=0.67,
-            max_channels=768,
-            cfg=cfg,
-        )
+        self.backbone = YOLOv10Backbone(in_channels=in_channels, cfg=cfg)
         c3, c4, c5 = self.backbone.out_c
-        self.neck = YOLOv10Neck(
-            width_mult=0.75,
-            depth_mult=0.67,
-            max_channels=768,
-            c3=c3,
-            c4=c4,
-            c5=c5,
-            cfg=cfg,
-        )
+        self.neck = YOLOv10Neck(c3=c3, c4=c4, c5=c5, cfg=cfg)
         p3, p4, p5 = self.neck.out_c
         self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)
         self._init_head_bias()

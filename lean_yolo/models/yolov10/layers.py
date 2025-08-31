@@ -17,7 +17,7 @@ def _autopad(k: int, p: int | None = None) -> int:
 
 
 class Conv(nn.Module):
-    def __init__(self, c_in: int, c_out: int, k: int = 1, s: int = 1, p: int | None = None, g: int = 1, act: bool = True):
+    def __init__(self, *, c_in: int, c_out: int, k: int, s: int, p: int | None, g: int, act: bool):
         super().__init__()
         self.conv = nn.Conv2d(c_in, c_out, k, s, _autopad(k, p), groups=g, bias=False)
         # Match Ultralytics BN defaults for YOLOv8/10
@@ -29,11 +29,11 @@ class Conv(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    def __init__(self, c_in: int, c_out: int, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(self, *, c_in: int, c_out: int, shortcut: bool, g: int, e: float):
         super().__init__()
         c_hidden = int(c_out * e)
-        self.cv1 = Conv(c_in, c_hidden, 3, 1)
-        self.cv2 = Conv(c_hidden, c_out, 3, 1, g=g)
+        self.cv1 = Conv(c_in=c_in, c_out=c_hidden, k=3, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=c_hidden, c_out=c_out, k=3, s=1, p=None, g=g, act=True)
         self.add = shortcut and c_in == c_out
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -47,12 +47,12 @@ class C2f(nn.Module):
     This is a simplified variant that balances readability and performance.
     """
 
-    def __init__(self, c_in: int, c_out: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+    def __init__(self, *, c_in: int, c_out: int, n: int, shortcut: bool, g: int, e: float):
         super().__init__()
         c = int(c_out * e)
-        self.cv1 = Conv(c_in, 2 * c, 1, 1)
-        self.cv2 = Conv((2 + n) * c, c_out, 1)
-        self.m = nn.ModuleList([Bottleneck(c, c, shortcut, g, e=1.0) for _ in range(n)])
+        self.cv1 = Conv(c_in=c_in, c_out=2 * c, k=1, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=(2 + n) * c, c_out=c_out, k=1, s=1, p=None, g=1, act=True)
+        self.m = nn.ModuleList([Bottleneck(c_in=c, c_out=c, shortcut=shortcut, g=g, e=1.0) for _ in range(n)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.cv1(x)
@@ -65,11 +65,11 @@ class C2f(nn.Module):
 
 
 class SPPF(nn.Module):
-    def __init__(self, c_in: int, c_out: int, k: int = 5):
+    def __init__(self, *, c_in: int, c_out: int, k: int):
         super().__init__()
         c_hidden = c_in // 2
-        self.cv1 = Conv(c_in, c_hidden, 1, 1)
-        self.cv2 = Conv(c_hidden * 4, c_out, 1, 1)
+        self.cv1 = Conv(c_in=c_in, c_out=c_hidden, k=1, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=c_hidden * 4, c_out=c_out, k=1, s=1, p=None, g=1, act=True)
         self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -81,7 +81,7 @@ class SPPF(nn.Module):
 
 
 class UpSample(nn.Module):
-    def __init__(self, scale_factor: float = 2.0):
+    def __init__(self, *, scale_factor: float):
         super().__init__()
         self.scale = scale_factor
 
@@ -90,7 +90,7 @@ class UpSample(nn.Module):
 
 
 class CIB(nn.Module):
-    def __init__(self, c_in: int, c_out: int, shortcut: bool = True, e: float = 0.5, lk: bool = False):
+    def __init__(self, *, c_in: int, c_out: int, shortcut: bool, e: float, lk: bool):
         super().__init__()
         c_hidden = int(c_out * e)
         # Depthwise 3x3
@@ -98,8 +98,8 @@ class CIB(nn.Module):
             def __init__(self, ch: int):
                 super().__init__()
                 # Match Ultralytics RepVGGDW: depthwise 7x7 and 3x3 branches
-                self.conv = Conv(ch, ch, 7, 1, p=3, g=ch, act=False)
-                self.conv1 = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
+                self.conv = Conv(c_in=ch, c_out=ch, k=7, s=1, p=3, g=ch, act=False)
+                self.conv1 = Conv(c_in=ch, c_out=ch, k=3, s=1, p=1, g=ch, act=False)
                 self.act = nn.SiLU()
 
             def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -107,11 +107,11 @@ class CIB(nn.Module):
 
         mid = 2 * c_hidden
         self.cv1 = nn.Sequential(
-            Conv(c_in, c_in, 3, 1, g=c_in),
-            Conv(c_in, mid, 1, 1),
-            (RepVGGDW(mid) if lk else Conv(mid, mid, 3, 1, g=mid)),
-            Conv(mid, c_out, 1, 1),
-            Conv(c_out, c_out, 3, 1, g=c_out),
+            Conv(c_in=c_in, c_out=c_in, k=3, s=1, p=None, g=c_in, act=True),
+            Conv(c_in=c_in, c_out=mid, k=1, s=1, p=None, g=1, act=True),
+            (RepVGGDW(mid) if lk else Conv(c_in=mid, c_out=mid, k=3, s=1, p=None, g=mid, act=True)),
+            Conv(c_in=mid, c_out=c_out, k=1, s=1, p=None, g=1, act=True),
+            Conv(c_in=c_out, c_out=c_out, k=3, s=1, p=None, g=c_out, act=True),
         )
         self.add = shortcut and c_in == c_out
 
@@ -121,12 +121,12 @@ class CIB(nn.Module):
 
 
 class C2fCIB(nn.Module):
-    def __init__(self, c_in: int, c_out: int, n: int = 1, shortcut: bool = False, lk: bool = False, e: float = 0.5):
+    def __init__(self, *, c_in: int, c_out: int, n: int, shortcut: bool, lk: bool, e: float):
         super().__init__()
         c = int(c_out * e)
-        self.cv1 = Conv(c_in, 2 * c, 1, 1)
-        self.cv2 = Conv((2 + n) * c, c_out, 1, 1)
-        self.m = nn.ModuleList([CIB(c, c, shortcut, e=1.0, lk=lk) for _ in range(n)])
+        self.cv1 = Conv(c_in=c_in, c_out=2 * c, k=1, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=(2 + n) * c, c_out=c_out, k=1, s=1, p=None, g=1, act=True)
+        self.m = nn.ModuleList([CIB(c_in=c, c_out=c, shortcut=shortcut, e=1.0, lk=lk) for _ in range(n)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.cv1(x)
@@ -139,7 +139,7 @@ class C2fCIB(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim: int, num_heads: int = 8, attn_ratio: float = 0.5):
+    def __init__(self, *, dim: int, num_heads: int, attn_ratio: float):
         super().__init__()
         self.num_heads = max(1, num_heads)
         self.head_dim = dim // self.num_heads
@@ -147,9 +147,9 @@ class Attention(nn.Module):
         self.scale = self.key_dim ** -0.5
         nh_kd = self.key_dim * self.num_heads
         h = dim + nh_kd * 2
-        self.qkv = Conv(dim, h, 1, 1, act=False)
-        self.proj = Conv(dim, dim, 1, 1, act=False)
-        self.pe = Conv(dim, dim, 3, 1, g=dim, act=False)
+        self.qkv = Conv(c_in=dim, c_out=h, k=1, s=1, p=None, g=1, act=False)
+        self.proj = Conv(c_in=dim, c_out=dim, k=1, s=1, p=None, g=1, act=False)
+        self.pe = Conv(c_in=dim, c_out=dim, k=3, s=1, p=None, g=dim, act=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         b, c, h, w = x.shape
@@ -166,14 +166,17 @@ class Attention(nn.Module):
 
 
 class PSA(nn.Module):
-    def __init__(self, c_in: int, c_out: int, e: float = 0.5):
+    def __init__(self, *, c_in: int, c_out: int, e: float):
         super().__init__()
         assert c_in == c_out
         self.c = int(c_in * e)
-        self.cv1 = Conv(c_in, 2 * self.c, 1, 1)
-        self.cv2 = Conv(2 * self.c, c_in, 1, 1)
-        self.attn = Attention(self.c, attn_ratio=0.5, num_heads=max(1, self.c // 64))
-        self.ffn = nn.Sequential(Conv(self.c, self.c * 2, 1, 1), Conv(self.c * 2, self.c, 1, 1, act=False))
+        self.cv1 = Conv(c_in=c_in, c_out=2 * self.c, k=1, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=2 * self.c, c_out=c_in, k=1, s=1, p=None, g=1, act=True)
+        self.attn = Attention(dim=self.c, attn_ratio=0.5, num_heads=max(1, self.c // 64))
+        self.ffn = nn.Sequential(
+            Conv(c_in=self.c, c_out=self.c * 2, k=1, s=1, p=None, g=1, act=True),
+            Conv(c_in=self.c * 2, c_out=self.c, k=1, s=1, p=None, g=1, act=False),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         a, b = self.cv1(x).split((self.c, self.c), dim=1)
@@ -183,10 +186,10 @@ class PSA(nn.Module):
 
 
 class SCDown(nn.Module):
-    def __init__(self, c_in: int, c_out: int, k: int = 3, s: int = 2):
+    def __init__(self, *, c_in: int, c_out: int, k: int, s: int):
         super().__init__()
-        self.cv1 = Conv(c_in, c_out, 1, 1)
-        self.cv2 = Conv(c_out, c_out, k, s, g=c_out, act=False)
+        self.cv1 = Conv(c_in=c_in, c_out=c_out, k=1, s=1, p=None, g=1, act=True)
+        self.cv2 = Conv(c_in=c_out, c_out=c_out, k=k, s=s, p=None, g=c_out, act=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.cv2(self.cv1(x))

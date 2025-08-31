@@ -14,7 +14,7 @@ class DecoupledHead(nn.Module):
     Produces per-scale outputs of shape [B, (num_classes + 4), H, W].
     """
 
-    def __init__(self, ch: Tuple[int, int, int], num_classes: int, width_mult: float = 1.0, max_channels: int = 1024):
+    def __init__(self, *, ch: Tuple[int, int, int], num_classes: int, width_mult: float, max_channels: int):
         super().__init__()
 
         def c(v: int) -> int:
@@ -27,20 +27,20 @@ class DecoupledHead(nn.Module):
 
         for c_in in ch:
             hidden = c(max(64, c_in // 2))
-            self.stems.append(Conv(c_in, hidden, 1, 1))
+            self.stems.append(Conv(c_in=c_in, c_out=hidden, k=1, s=1, p=None, g=1, act=True))
 
             # classification branch
             self.cls_layers.append(
                 nn.Sequential(
-                    Conv(hidden, hidden, 3, 1),
-                    Conv(hidden, num_classes, 1, 1, act=False),
+                    Conv(c_in=hidden, c_out=hidden, k=3, s=1, p=None, g=1, act=True),
+                    Conv(c_in=hidden, c_out=num_classes, k=1, s=1, p=None, g=1, act=False),
                 )
             )
             # box regression branch
             self.box_layers.append(
                 nn.Sequential(
-                    Conv(hidden, hidden, 3, 1),
-                    Conv(hidden, 4, 1, 1, act=False),
+                    Conv(c_in=hidden, c_out=hidden, k=3, s=1, p=None, g=1, act=True),
+                    Conv(c_in=hidden, c_out=4, k=1, s=1, p=None, g=1, act=False),
                 )
             )
 
@@ -52,4 +52,3 @@ class DecoupledHead(nn.Module):
             b = box(x)
             outs.append(torch.cat([b, c], dim=1))
         return outs
-
