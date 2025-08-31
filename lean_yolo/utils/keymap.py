@@ -41,8 +41,23 @@ def remap_official_keys_by_name(src_sd: Dict[str, object], dst_state_keys: Dict[
 
     def try_add(idx: int, prefix: str, key: str, val: object) -> None:
         new_key = key.replace(f"model.{idx}.", prefix + ".", 1)
+        # Handle RepVGGDW fused naming for cv1.2.* inside CIB blocks
+        alt_map = {
+            ".cv1.2.conv.weight": ".cv1.2.conv.conv.weight",
+            ".cv1.2.bn.weight": ".cv1.2.conv.bn.weight",
+            ".cv1.2.bn.bias": ".cv1.2.conv.bn.bias",
+            ".cv1.2.bn.running_mean": ".cv1.2.conv.bn.running_mean",
+            ".cv1.2.bn.running_var": ".cv1.2.conv.bn.running_var",
+        }
         if new_key in dst_state_keys:
             out[new_key] = val
+        else:
+            for src_suf, dst_suf in alt_map.items():
+                if new_key.endswith(src_suf):
+                    candidate = new_key[: -len(src_suf)] + dst_suf
+                    if candidate in dst_state_keys:
+                        out[candidate] = val
+                        break
 
     for k, v in src_sd.items():
         if not k.startswith("model."):

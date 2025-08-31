@@ -96,9 +96,9 @@ class CIB(nn.Module):
         class RepVGGDW(nn.Module):
             def __init__(self, ch: int):
                 super().__init__()
-                # Depthwise 7x7 and 3x3 branches per official implementation
-                self.conv = Conv(ch, ch, 7, 1, p=3, g=ch, act=False)
-                self.conv1 = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
+                # Depthwise 3x3 and 1x1 branches
+                self.conv = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
+                self.conv1 = Conv(ch, ch, 1, 1, g=ch, act=False)
                 self.act = nn.SiLU(inplace=True)
 
             def forward(self, x: torch.Tensor) -> torch.Tensor:

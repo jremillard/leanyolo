@@ -157,4 +157,26 @@ def remap_official_yolov10_to_lean(loaded_obj: Dict, dst_model: torch.nn.Module)
 
     out = dict(name_mapped)
     out.update(shape_fill)
+
+    # Fill fused RepVGGDW conv1 branches when official checkpoint is fused (no conv1 keys)
+    # Detect by presence of sibling '...cv1.2.conv.conv.weight' and absence of '...cv1.2.conv1.conv.weight'
+    for dk in dst_sd.keys():
+        if ".cv1.2.conv1.conv.weight" in dk and dk not in out:
+            base = dk.replace("conv1.conv.weight", "conv.conv.weight")
+            if base in out:
+                # create zeros for conv1 weights with correct shape
+                wshape = dst_sd[dk].shape
+                out[dk] = torch.zeros(wshape)
+                # Also handle BN parameters for conv1 if expected
+                bn_w = dk.replace("conv.weight", "bn.weight")
+                bn_b = dk.replace("conv.weight", "bn.bias")
+                bn_rm = dk.replace("conv.weight", "bn.running_mean")
+                bn_rv = dk.replace("conv.weight", "bn.running_var")
+                if bn_w in dst_sd and bn_w not in out:
+                    num = dst_sd[bn_w].shape[0]
+                    out[bn_w] = torch.ones_like(dst_sd[bn_w])
+                    out[bn_b] = torch.zeros_like(dst_sd[bn_b])
+                    out[bn_rm] = torch.zeros_like(dst_sd[bn_rm])
+                    out[bn_rv] = torch.ones_like(dst_sd[bn_rv])
+
     return out
