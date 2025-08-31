@@ -9,6 +9,7 @@ import torch.nn as nn
 from .backbone import YOLOv10Backbone
 from .neck import YOLOv10Neck
 from .head import DecoupledHead
+from .head_v10 import V10Detect
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class YOLOv10(nn.Module):
             width_mult=spec.width_mult,
             depth_mult=spec.depth_mult,
             max_channels=spec.max_channels,
+            variant=getattr(spec, 'variant', 's'),
         )
         c3, c4, c5 = self.backbone.out_c
         self.neck = YOLOv10Neck(
@@ -49,9 +51,11 @@ class YOLOv10(nn.Module):
             c3=c3,
             c4=c4,
             c5=c5,
+            variant=getattr(spec, 'variant', 's'),
         )
         p3, p4, p5 = self.neck.out_c
-        self.head = DecoupledHead((p3, p4, p5), num_classes=num_classes, width_mult=spec.width_mult, max_channels=spec.max_channels)
+        # Use v10Detect head to ensure full weight compatibility
+        self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)
 
         # Initialize bias for better startup (optional minor improvement)
         self._init_head_bias()

@@ -26,6 +26,10 @@ NECK_MAP = {
     22: "neck.p4_p5_c2f",
 }
 
+HEAD_MAP = {
+    23: "head",  # v10Detect head module
+}
+
 
 def remap_official_keys_by_name(src_sd: Dict[str, object], dst_state_keys: Dict[str, object]) -> Dict[str, object]:
     """Map official YOLOv10 checkpoint keys to our lean model keys by layer index mapping.
@@ -53,8 +57,9 @@ def remap_official_keys_by_name(src_sd: Dict[str, object], dst_state_keys: Dict[
             try_add(idx, BACKBONE_MAP[idx], k, v)
         elif idx in NECK_MAP:
             try_add(idx, NECK_MAP[idx], k, v)
+        elif idx in HEAD_MAP:
+            try_add(idx, HEAD_MAP[idx], k, v)
         else:
             continue
 
     return out
-

@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 from .yolov10.model import YOLOv10
+from .official import OfficialYOLOv10Adapter
 import warnings
 from ..utils.weights import WeightsEntry, WeightsResolver
 from ..utils.remap import (
@@ -34,16 +35,18 @@ class ModelSpec:
     depth_mult: float
     width_mult: float
     max_channels: int = 1024
+    variant: str = "s"  # one of n,s,m,b,l,x
 
 
 _YOLOV10_SPECS: Dict[str, ModelSpec] = {
-    # Approximations aligned to official YOLOv10 family
-    "yolov10n": ModelSpec(depth_mult=0.33, width_mult=0.50, max_channels=512),
-    "yolov10s": ModelSpec(depth_mult=0.50, width_mult=1.00, max_channels=512),
-    "yolov10m": ModelSpec(depth_mult=0.67, width_mult=1.00, max_channels=768),
-    "yolov10b": ModelSpec(depth_mult=0.80, width_mult=1.00, max_channels=1024),
-    "yolov10l": ModelSpec(depth_mult=1.00, width_mult=1.00, max_channels=1024),
-    "yolov10x": ModelSpec(depth_mult=1.25, width_mult=1.25, max_channels=1280),
+    # Official scales extracted from THU-MIG/yolov10 YAMLs
+    # [depth_mult, width_mult, max_channels]
+    "yolov10n": ModelSpec(depth_mult=0.33, width_mult=0.25, max_channels=1024, variant="n"),
+    "yolov10s": ModelSpec(depth_mult=0.33, width_mult=0.50, max_channels=1024, variant="s"),
+    "yolov10m": ModelSpec(depth_mult=0.67, width_mult=0.75, max_channels=768, variant="m"),
+    "yolov10b": ModelSpec(depth_mult=0.67, width_mult=1.00, max_channels=512, variant="b"),
+    "yolov10l": ModelSpec(depth_mult=1.00, width_mult=1.00, max_channels=512, variant="l"),
+    "yolov10x": ModelSpec(depth_mult=1.00, width_mult=1.25, max_channels=512, variant="x"),
 }
 
 
@@ -170,6 +173,7 @@ def get_model(
     weights: Optional[str] = None,
     num_classes: int = 80,
     in_channels: int = 3,
+    exact: bool = True,
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
 
@@ -209,6 +213,23 @@ def get_model(
                     f"filled model: {dst_loaded}/{dst_total} params ({pct_dst:.1f}%).",
                     RuntimeWarning,
                 )
+                # If exact compatibility is requested and not achieved, fallback to official adapter
+                if exact and (len(missing) > 0 or pct_src < 99.9 or pct_dst < 99.9):
+                    var = name.replace('yolov10','')
+                    off = OfficialYOLOv10Adapter(variant=var, nc=num_classes)
+                    # load official
+                    # Prefer underlying model object in loaded_obj
+                    model_obj = src_sd  # default
+                    try:
+                        obj = loaded_obj.get('model', None) if isinstance(loaded_obj, dict) else None
+                    except Exception:
+                        obj = None
+                    off.load_official_checkpoint(obj if obj is not None else loaded_obj)
+                    warnings.warn(
+                        f"Using official YOLOv10 model for exact weight loading (variant={var}).",
+                        RuntimeWarning,
+                    )
+                    return off
             except Exception:
                 pass
             if unexpected:

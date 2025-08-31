@@ -31,7 +31,7 @@ class Bottleneck(nn.Module):
     def __init__(self, c_in: int, c_out: int, shortcut: bool = True, g: int = 1, e: float = 0.5):
         super().__init__()
         c_hidden = int(c_out * e)
-        self.cv1 = Conv(c_in, c_hidden, 1, 1)
+        self.cv1 = Conv(c_in, c_hidden, 3, 1)
         self.cv2 = Conv(c_hidden, c_out, 3, 1, g=g)
         self.add = shortcut and c_in == c_out
 
@@ -93,11 +93,23 @@ class CIB(nn.Module):
         super().__init__()
         c_hidden = int(c_out * e)
         # Depthwise 3x3
+        class RepVGGDW(nn.Module):
+            def __init__(self, ch: int):
+                super().__init__()
+                # Depthwise 7x7 and 3x3 branches per official implementation
+                self.conv = Conv(ch, ch, 7, 1, p=3, g=ch, act=False)
+                self.conv1 = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
+                self.act = nn.SiLU(inplace=True)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.act(self.conv(x) + self.conv1(x))
+
+        mid = 2 * c_hidden
         self.cv1 = nn.Sequential(
             Conv(c_in, c_in, 3, 1, g=c_in),
-            Conv(c_in, 2 * c_hidden, 1, 1),
-            Conv(2 * c_hidden, 2 * c_hidden, 3, 1, g=2 * c_hidden),
-            Conv(2 * c_hidden, c_out, 1, 1),
+            Conv(c_in, mid, 1, 1),
+            (RepVGGDW(mid) if lk else Conv(mid, mid, 3, 1, g=mid)),
+            Conv(mid, c_out, 1, 1),
             Conv(c_out, c_out, 3, 1, g=c_out),
         )
         self.add = shortcut and c_in == c_out

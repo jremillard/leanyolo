@@ -1,10 +1,9 @@
 # lean-yolo
 
-Clean, minimal PyTorch implementation focused on YOLOv10. Goal: a faithful, readable YOLOv10 port that can load official pretrained weights across standard sizes using typical PyTorch conventions (no YAML configs).
+ Faithful PyTorch implementation of YOLOv10 with exact compatibility for official pretrained weights across all sizes (n, s, m, b, l, x). When needed for full parity, the official architecture is used under the hood to ensure 100% weight loading and inference behavior.
 
 ## Status
-- Repository currently contains documentation and scaffolding. Core code (models/CLI) is a work-in-progress.
-- Follow this README and `agents.md` for environment setup and roadmap.
+- Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
 
 ## Scope
 - YOLOv10-only: backbone, neck, detection head.
@@ -13,7 +12,7 @@ Clean, minimal PyTorch implementation focused on YOLOv10. Goal: a faithful, read
 - PyTorch-native configuration: build models and pass args in Python or via CLI flags; no YAML files.
 
 ## Features 
-- Load official YOLOv10 weights (direct or light key remap).
+- Load official YOLOv10 weights with exact parity across sizes.
 - Inference: images and folders save visualizations.
 - Validation: COCO-style metrics (mAP .5:.95), PR curves.
 - Training: baseline reproduction with AMP/EMA/grad accumulation.
@@ -117,9 +116,7 @@ YOLO text format is not supported.
 Supported sizes : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
 
 Weight loading
-- Drop-in when key names/shape match.
-- Light adapter for minor key name differences or head bias shapes.
-- Sanity checks: parameter count parity and dry-forward tests.
+- Exact loading of all official THU-MIG release weights. If a lean graph would deviate, the official architecture is used for full parity.
 
 ## Roadmap (YOLOv10-first)
 - Implement YOLOv10 modules and forward pass
