@@ -47,7 +47,9 @@ def read_official_map(model: str) -> float:
     with open(csv_path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            last_row = row
+            # Normalize keys by stripping whitespace padding from official logs
+            row_norm = { (k.strip() if isinstance(k, str) else k): v for k, v in row.items() }
+            last_row = row_norm
     if not last_row:
         raise RuntimeError("Official logs CSV appears empty.")
     # Column name in logs
@@ -83,4 +85,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
