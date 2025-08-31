@@ -1,0 +1,176 @@
+# Lean YOLO Development Guide
+
+## Project Overview
+
+Clean, minimal PyTorch implementation focused on YOLOv10. The goal is a faithful, readable YOLOv10 port that can load official pretrained weights across standard sizes using typical PyTorch conventions (no YAML configs).
+
+Note: For a fuller overview, usage examples (Python API and CLI), and the latest details, also read `README.md`.
+
+Key capabilities
+- YOLOv10-only: backbone, neck, detection head
+- Official weight loading for sizes: `n`, `s`, `m`, `b`, `l`, `x`
+- PyTorch-native configuration: construct models and pass args in Python or via CLI flags
+- Inference, validation (COCO-style mAP .5:.95), training baseline, and export (TorchScript/ONNX)
+
+## Tech Stack
+
+- Python 3.9+ (3.10/3.11 recommended)
+- PyTorch (CPU or CUDA build appropriate for your system)
+- torchvision, torchaudio (per PyTorch install channel)
+- numpy, pillow, opencv-python, tqdm, matplotlib, pycocotools
+- COCO dataset format for data and class definitions
+
+## Project Structure
+
+```
+lean-yolo/
+  README.md
+  LICENSE
+  lean_yolo/
+    __init__.py
+    models/
+      yolov10/
+        __init__.py
+        backbone.py
+        neck.py
+        head.py
+        model.py
+    data/
+      dataset.py
+      transforms.py
+      collate.py
+    engine/
+      train.py
+      eval.py
+      infer.py
+    utils/
+      metrics.py
+      box_ops.py
+      losses.py
+      viz.py
+    tests/
+      test_backbone.py
+      test_neck.py
+      test_head.py
+      test_model.py
+      test_output_parity.py
+  train.py
+  val.py
+  infer.py
+  export.py
+  requirements.txt
+```
+
+## Development Guidelines
+
+### Key Principles
+
+- YOLOv10-first focus: implement backbone, neck, head, and end-to-end forward
+- Faithful parity: match official implementation outputs and parameter shapes
+- PyTorch-native API: avoid YAML; use Python constructors and simple CLI flags
+- Readability over magic: clear modules, explicit shapes, and simple data flow
+- Reproducibility: CPU reference outputs and sanity checks for weight parity
+
+### Best Practices
+
+- Keep PRs minimal and focused; include rationale and docs updates when behavior changes
+- Add or update unit tests for modules touched (backbone/neck/head/model)
+- Verify weight loading: parameter count parity and dry-forward tests
+- Use COCO JSON format and standard directory structure for datasets
+
+## Environment Setup
+
+### Development Requirements
+
+- Python 3.9+ (3.10/3.11 recommended)
+- PyTorch (CPU or CUDA build matching your hardware/driver)
+- Git
+
+### Installation Steps
+
+Create and activate a virtual environment (Windows example shown; POSIX alternative commented):
+
+```
+python -m venv .venv
+.\.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/macOS
+```
+
+Install dependencies (adjust the PyTorch index URL for your CUDA/CPU build):
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install numpy pillow opencv-python tqdm matplotlib pycocotools
+```
+
+Optional quick check in Python:
+
+```python
+import torch
+from lean_yolo.models import get_model
+model = get_model("yolov10s", weights="DEFAULT")
+model.eval()
+with torch.no_grad():
+    out = model(torch.zeros(1, 3, 640, 640))
+```
+
+Dataset layout (COCO):
+
+```
+data/
+  images/
+    train2017/ ... .jpg
+    val2017/   ... .jpg
+  annotations/
+    instances_train2017.json
+    instances_val2017.json
+```
+
+Notes
+- Class names are read from COCO JSON files
+- YOLO text format is not supported
+
+## Reference Implementation Setup (Official YOLOv10)
+
+Use the official YOLOv10 repo to generate reference outputs for parity checks.
+
+1) Clone the official repository (keep separate from this repo):
+
+```
+git clone https://github.com/THU-MIG/yolov10.git yolov10-official
+cd yolov10-official
+```
+
+2) Create a clean environment (CPU shown for reproducibility):
+
+```
+python -m venv .venv
+.\.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/macOS
+```
+
+3) Install dependencies (match your torch build as needed):
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+```
+
+4) Obtain official weights for the target size (n/s/m/b/l/x) following the repo’s README instructions.
+
+5) Generate reference outputs on CPU for deterministic comparison (examples; consult the official README for exact commands):
+
+```
+# Example: run validation or inference to produce outputs
+# The exact entrypoints/flags may differ; see yolov10-official/README.md
+python val.py --weights yolov10s.pt --img 640 --device cpu --batch 1
+python detect.py --weights yolov10s.pt --source path/to/images --img 640 --device cpu
+```
+
+6) Save intermediate tensors or end-to-end predictions as needed for parity tests in this repo’s `lean_yolo/tests` workflow. Use consistent image sizes and preprocessing.
+
+Tips
+- Prefer CPU for parity snapshots to avoid minor CUDA nondeterminism for unit tests.
+- Keep torch, torchvision, and numpy versions pinned when regenerating references.
+- Track exact commands and seeds for reproducibility.
+
