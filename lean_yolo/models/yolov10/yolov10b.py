@@ -15,7 +15,6 @@ class YOLOv10b(nn.Module):
     HCH = {13: 512, 16: 256, 19: 512, 22: 512}
     REPS = {2: 2, 4: 4, 6: 4, 8: 2, 13: 2, 16: 2, 19: 2, 22: 2}
     TYPES = {"c6": "C2f", "c8": "C2fCIB", "p5_p4": "C2fCIB", "p3_p4": "C2fCIB", "p4_p5": "C2fCIB"}
-    LK = {"c8": False, "p5_p4": False, "p4_p5": False}
 
     def __init__(self, *, num_classes: int, in_channels: int):
         super().__init__()
@@ -24,7 +23,7 @@ class YOLOv10b(nn.Module):
             CH=self.CH,
             reps=self.REPS,
             types=self.TYPES,
-            use_lk_c8=self.LK.get("c8", False),
+            use_lk_c8=False,
         )
         c3, c4, c5 = self.backbone.out_c
         self.neck = YOLOv10Neck(
@@ -34,8 +33,8 @@ class YOLOv10b(nn.Module):
             HCH=self.HCH,
             reps=self.REPS,
             types=self.TYPES,
-            use_lk_p5_p4=self.LK.get("p5_p4", False),
-            use_lk_p4_p5=self.LK.get("p4_p5", False),
+            use_lk_p5_p4=False,
+            use_lk_p4_p5=False,
         )
         p3, p4, p5 = self.neck.out_c
         self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)
