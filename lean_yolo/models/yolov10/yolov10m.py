@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+"""YOLOv10-m model definition.
+
+The medium (m) variant provides a balance of speed and accuracy.
+"""
+
 from typing import List
 
 import torch

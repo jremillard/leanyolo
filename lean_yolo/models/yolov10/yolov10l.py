@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""YOLOv10-l model definition.
+
+The large (l) variant increases capacity for higher accuracy on larger devices.
+Structure is the same as other variants, with bigger channels and more repeats.
+"""
+
 from typing import List
 
 import torch

@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+"""Alternative simple decoupled head (not the default V10 head).
+
+This head is a minimal, anchor-free design for demonstration. It takes three
+feature maps (P3, P4, P5) and produces per-scale outputs containing box and
+class predictions. The main difference from V10Detect is that this head omits
+the DFL distributions and uses direct regression channels.
+
+See README for literature pointers on decoupled heads and anchor-free designs.
+"""
+
 from typing import List, Tuple
 
 import torch
@@ -11,7 +21,8 @@ from .layers import Conv, make_divisible
 class DecoupledHead(nn.Module):
     """Simple anchor-free, decoupled detection head.
 
-    Produces per-scale outputs of shape [B, (num_classes + 4), H, W].
+    Produces per-scale outputs of shape [B, (num_classes + 4), H, W]. The 4
+    channels correspond to box offsets; the remaining channels are class logits.
     """
 
     def __init__(self, *, ch: Tuple[int, int, int], num_classes: int, width_mult: float, max_channels: int):
@@ -45,6 +56,7 @@ class DecoupledHead(nn.Module):
             )
 
     def forward(self, feats: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> List[torch.Tensor]:
+        """Apply the head over P3, P4, P5 and concatenate box/class outputs."""
         outs: List[torch.Tensor] = []
         for x, stem, cls, box in zip(feats, self.stems, self.cls_layers, self.box_layers):
             x = stem(x)

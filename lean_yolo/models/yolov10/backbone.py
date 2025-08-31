@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+"""YOLOv10 Backbone
+
+This module builds a hierarchical feature extractor from an input image. The
+backbone gradually downsamples the spatial resolution while increasing channels,
+producing three feature maps at different scales (commonly called C3, C4, C5).
+
+If you have seen ResNet or similar CNNs, this is the analogous part that turns
+pixels into meaningful feature tensors for downstream detection heads.
+
+See the README for links to the YOLOv10 paper and background references.
+"""
+
 from typing import Tuple, Dict
 
 import torch
@@ -9,6 +21,15 @@ from .layers import Conv, C2f, C2fCIB, SPPF, PSA, SCDown
 
 
 class YOLOv10Backbone(nn.Module):
+    """Backbone producing multi-scale features (C3, C4, C5).
+
+    Args:
+        in_channels: Input image channels, usually 3 for RGB.
+        CH: Channel dictionary for each stage (indices align with paper/code).
+        reps: How many times to repeat certain blocks at each stage.
+        types: Which block variant to use at specific points (e.g., C2f vs C2fCIB).
+        use_lk_c8: Whether to enable the long-kernel depthwise path in the c8 block.
+    """
     def __init__(
         self,
         *,
@@ -42,6 +63,11 @@ class YOLOv10Backbone(nn.Module):
         self.out_c = (CH[3], CH[5], CH[7])
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute backbone features.
+
+        Returns:
+            Tuple of tensors (C3, C4, C5) at progressively lower resolutions.
+        """
         x = self.cv0(x)
         x = self.cv1(x)
         x = self.c2(x)

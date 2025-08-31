@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""YOLOv10-n model definition.
+
+The nano (n) variant trades accuracy for speed by using smaller channel sizes
+and fewer block repetitions. Structure is identical to other variants.
+"""
+
 from typing import List
 
 import torch

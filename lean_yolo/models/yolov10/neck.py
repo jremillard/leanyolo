@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+"""YOLOv10 Neck
+
+The neck fuses multi-scale features from the backbone using a top-down and
+bottom-up path (sometimes called a Feature Pyramid Network). It upsamples and
+downsamples to blend information so that each output scale benefits from both
+coarse and fine details.
+
+Outputs three feature maps (P3, P4, P5) that align with the detection head.
+
+See the README for paper references and conceptual diagrams.
+"""
+
 from typing import Tuple, Dict
 
 import torch
@@ -9,6 +21,16 @@ from .layers import Conv, C2f, C2fCIB, SCDown, UpSample
 
 
 class YOLOv10Neck(nn.Module):
+    """Neck that merges features into three detection scales (P3, P4, P5).
+
+    Args:
+        c3, c4, c5: Channel sizes of the backbone outputs.
+        HCH: Channel dictionary for the neck’s internal nodes.
+        reps: Repetition counts for certain nodes.
+        types: Block variant selectors (C2f or C2fCIB) per merge stage.
+        use_lk_p5_p4: Enable long-kernel path on the P5→P4 merge if C2fCIB.
+        use_lk_p4_p5: Enable long-kernel path on the P4→P5 merge if C2fCIB.
+    """
     def __init__(
         self,
         *,
@@ -45,6 +67,7 @@ class YOLOv10Neck(nn.Module):
         self.out_c = (HCH[16], HCH[19], HCH[22])
 
     def forward(self, c3: torch.Tensor, c4: torch.Tensor, c5: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Fuse features top-down and bottom-up to produce P3, P4, P5."""
         # Top-down
         up4 = self.upsample(c5)
         p4 = self.p5_p4_c2f(torch.cat([up4, c4], dim=1))

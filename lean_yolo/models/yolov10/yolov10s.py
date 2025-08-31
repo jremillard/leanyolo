@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+"""YOLOv10-s model definition.
+
+This is the small (s) variant of YOLOv10. Variants differ mainly in channel
+counts and block repetitions; the code below wires up the backbone, neck, and
+head with the appropriate sizes for this model.
+
+If you are new to detection models, read the README’s high-level overview and
+paper references. The forward pass is: image → backbone (C3/C4/C5) → neck
+(P3/P4/P5) → head (per-scale outputs).
+"""
+
 from typing import List
 
 import torch

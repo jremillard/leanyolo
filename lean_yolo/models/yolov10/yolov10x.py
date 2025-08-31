@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""YOLOv10-x model definition.
+
+The extra-large (x) variant maximizes accuracy and is the slowest/most memory
+hungry. Structure is unchanged; only the channel/repetition config scales up.
+"""
+
 from typing import List
 
 import torch

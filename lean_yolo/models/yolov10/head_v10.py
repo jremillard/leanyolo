@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+"""YOLOv10 Detection Head (training-style outputs)
+
+This head produces per-scale tensors that contain box-regression distances and
+class logits. It follows a decoupled design: a small regression branch and a
+small classification branch for each input feature map. The DFL (Distribution
+Focal Loss) layer converts discrete distributions over distances into expected
+continuous box offsets.
+
+This module returns raw per-scale tensors suitable for loss computation during
+training or for parity checks. Post-processing (e.g., decoding and NMS) is
+performed elsewhere.
+
+See README for references on YOLOv10 and DFL.
+"""
+
 from typing import List, Sequence, Tuple
 
 import torch
@@ -9,6 +24,12 @@ from .layers import Conv
 
 
 class DFL(nn.Module):
+    """Distribution Focal Loss helper: converts logits to expected distances.
+
+    Args:
+        c1: Number of bins per side (e.g., reg_max); the layer is initialized
+            to compute the expectation across these bins.
+    """
     def __init__(self, *, c1: int):
         super().__init__()
         self.conv = nn.Conv2d(c1, 1, 1, bias=False)
@@ -25,6 +46,13 @@ class DFL(nn.Module):
 
 
 class V10Detect(nn.Module):
+    """Decoupled YOLOv10 detection head.
+
+    Args:
+        nc: Number of object classes.
+        ch: Channels of the three input feature maps (P3, P4, P5).
+        reg_max: Number of bins used by DFL for distance prediction.
+    """
     def __init__(self, *, nc: int, ch: Sequence[int], reg_max: int):
         super().__init__()
         self.nc = nc
@@ -75,5 +103,10 @@ class V10Detect(nn.Module):
         return y
 
     def forward(self, x: Sequence[torch.Tensor]) -> List[torch.Tensor]:
-        # Return training-style outputs per feature level
+        """Return training-style outputs per feature level.
+
+        Each tensor has shape [B, (4*reg_max + nc), H, W], where the first
+        4*reg_max channels encode box distances as discrete distributions and
+        the remaining `nc` channels are class logits.
+        """
         return self.forward_feat(x, self.cv2, self.cv3)

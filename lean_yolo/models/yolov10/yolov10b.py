@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""YOLOv10-b model definition.
+
+The base (b) variant is similar in capacity to `l` with slightly different
+channel choices; included to match official family sizing.
+"""
+
 from typing import List
 
 import torch
