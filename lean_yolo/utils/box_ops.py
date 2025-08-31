@@ -83,3 +83,33 @@ def scale_coords(from_shape: Tuple[int, int], boxes: torch.Tensor, to_shape: Tup
     y2 = y2 * gain_h
     return torch.stack((x1, y1, x2, y2), dim=-1)
 
+
+def unletterbox_coords(
+    boxes: torch.Tensor,
+    gain: Tuple[float, float],
+    pad: Tuple[int, int],
+    to_shape: Tuple[int, int],
+) -> torch.Tensor:
+    """Invert letterbox: boxes are xyxy in resized-padded space.
+
+    Args:
+        boxes: [N,4]
+        gain: (gw, gh) gains returned by letterbox
+        pad: (px, py) padding (left, top)
+        to_shape: target original shape (h, w)
+    """
+    x1, y1, x2, y2 = boxes.unbind(-1)
+    px, py = pad
+    gw, gh = gain
+    # remove pad
+    x1 = (x1 - px) / gw
+    x2 = (x2 - px) / gw
+    y1 = (y1 - py) / gh
+    y2 = (y2 - py) / gh
+    # clip to image
+    H, W = to_shape
+    x1 = x1.clamp(0, W)
+    x2 = x2.clamp(0, W)
+    y1 = y1.clamp(0, H)
+    y2 = y2.clamp(0, H)
+    return torch.stack((x1, y1, x2, y2), dim=-1)

@@ -13,7 +13,8 @@ from pycocotools.cocoeval import COCOeval
 
 from ..models import get_model
 from ..utils.postprocess import decode_predictions
-from ..utils.box_ops import scale_coords
+from ..utils.box_ops import unletterbox_coords
+from ..utils.letterbox import letterbox
 from ..data.coco import ensure_coco_val, load_coco_categories, list_images
 
 
@@ -46,15 +47,15 @@ def validate_coco(
     for p in img_paths:
         img = cv2.cvtColor(cv2.imread(str(p), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         orig_shape = img.shape[:2]
-        resized = cv2.resize(img, (imgsz, imgsz), interpolation=cv2.INTER_LINEAR)
-        x = torch.from_numpy(resized).to(device_t).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        lb_img, gain, pad = letterbox(img, new_shape=imgsz)
+        x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
 
         preds = model(x)
         dets = decode_predictions(preds, num_classes=80, strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))[0][0]
         if dets.numel() == 0:
             continue
         # Scale boxes back
-        dets[:, :4] = scale_coords((imgsz, imgsz), dets[:, :4], orig_shape)
+        dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
         # Convert to COCO json
         # COCO expects [x, y, w, h] with category_id being dataset category IDs
         image_id = int(Path(p).stem)
@@ -91,4 +92,3 @@ def validate_coco(
         "mAP75": float(coco_eval.stats[2]),
     }
     return stats
-

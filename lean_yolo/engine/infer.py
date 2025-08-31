@@ -10,7 +10,8 @@ import torch
 
 from ..models import get_model
 from ..utils.postprocess import decode_predictions
-from ..utils.box_ops import scale_coords
+from ..utils.box_ops import unletterbox_coords
+from ..utils.letterbox import letterbox
 from ..utils.viz import draw_detections
 
 
@@ -61,14 +62,14 @@ def infer_paths(
     with torch.no_grad():
         for ipath in paths:
             img = _imread_rgb(str(ipath))
-            resized, orig_shape = _resize_square(img, imgsz)
-            x = _to_tensor(resized, device_t)
+            lb_img, gain, pad = letterbox(img, new_shape=imgsz)
+            x = _to_tensor(lb_img, device_t)
             preds = model(x)
             dets_per_img = decode_predictions(preds, num_classes=80, strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))
             dets = dets_per_img[0][0]
             # Scale back to original image size
             if dets.numel() > 0:
-                dets[:, :4] = scale_coords((imgsz, imgsz), dets[:, :4], orig_shape)
+                dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=img.shape[:2])
 
             # Save visualization
             rgb = img
@@ -79,4 +80,3 @@ def infer_paths(
             results.append((str(ipath), dets))
 
     return results
-

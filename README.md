@@ -82,12 +82,17 @@ Weight loading notes
 
 ## CLI 
 
-Planned. CLI entrypoints (`train.py`, `val.py`, `infer.py`, `export.py`) will be added as the implementation lands.
+CLI entrypoints
+- `infer.py`: basic inference with letterbox preprocessing and NMS
+- `val.py`: COCO validation (downloads val2017 on demand)
 
 Notes
 - Training requires COCO JSON annotation format (standard COCO dataset structure).
 - Class names are automatically extracted from the COCO JSON files.
 - For COCO, the standard 80-class list is used.
+
+Preprocessing
+- Inference/validation use letterbox resize with padding (114,114,114) for parity with official preprocessing.
 
 ## Datasets
 
