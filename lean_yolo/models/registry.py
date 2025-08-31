@@ -311,4 +311,4 @@ def get_model_weights(name: str) -> Type[_YOLOv10Weights]:
     """
     if name not in _YOLOV10_SPECS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
-    return _YOLOV10Weights
+    return _YOLOv10Weights

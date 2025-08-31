@@ -56,7 +56,11 @@ class WeightsEntry:
         os.replace(tmp_path, dst)
 
     def _load_from_file(self, path: str, map_location: str | torch.device) -> Dict[str, torch.Tensor]:
-        return torch.load(path, map_location=map_location)
+        # PyTorch>=2.6 defaults to weights_only=True which breaks loading pickled checkpoints
+        try:
+            return torch.load(path, map_location=map_location, weights_only=False)  # type: ignore[call-arg]
+        except TypeError:
+            return torch.load(path, map_location=map_location)
 
     def get_state_dict(
         self,
