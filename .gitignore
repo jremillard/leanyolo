@@ -148,6 +148,8 @@ ENV/
 env.bak/
 venv.bak/
 venv-ref/
+.venv-ref/
+yolov10-official/
 
 # Spyder project settings
 .spyderproject

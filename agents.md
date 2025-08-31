@@ -137,14 +137,19 @@ Notes
 
 Use the official YOLOv10 repo to generate reference outputs for parity checks.
 
-1) Clone the official repository (keep separate from this repo):
+Location and ignore rules
+- Clone the reference repo into a sibling folder under this project root: `yolov10-official/`.
+- Create its own virtual environment inside that folder: `.venv-ref/`.
+- Both `yolov10-official/` and `.venv-ref/` are git-ignored in this repo.
+
+1) Clone the official repository (under this repo, but git-ignored):
 
 ```
 git clone https://github.com/THU-MIG/yolov10.git yolov10-official
 cd yolov10-official
 ```
 
-2) Create a clean environment (CPU shown for reproducibility, Linux):
+2) Create a clean environment inside the reference repo (CPU shown for reproducibility):
 
 ```
 python -m venv .venv-ref
