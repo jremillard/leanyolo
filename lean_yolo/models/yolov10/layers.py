@@ -20,7 +20,8 @@ class Conv(nn.Module):
     def __init__(self, c_in: int, c_out: int, k: int = 1, s: int = 1, p: int | None = None, g: int = 1, act: bool = True):
         super().__init__()
         self.conv = nn.Conv2d(c_in, c_out, k, s, _autopad(k, p), groups=g, bias=False)
-        self.bn = nn.BatchNorm2d(c_out)
+        # Match Ultralytics BN defaults for YOLOv8/10
+        self.bn = nn.BatchNorm2d(c_out, eps=1e-3, momentum=0.03)
         self.act = nn.SiLU(inplace=True) if act else nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -46,7 +47,7 @@ class C2f(nn.Module):
     This is a simplified variant that balances readability and performance.
     """
 
-    def __init__(self, c_in: int, c_out: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(self, c_in: int, c_out: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
         super().__init__()
         c = int(c_out * e)
         self.cv1 = Conv(c_in, 2 * c, 1, 1)
@@ -96,10 +97,10 @@ class CIB(nn.Module):
         class RepVGGDW(nn.Module):
             def __init__(self, ch: int):
                 super().__init__()
-                # Depthwise 3x3 and 1x1 branches
-                self.conv = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
-                self.conv1 = Conv(ch, ch, 1, 1, g=ch, act=False)
-                self.act = nn.SiLU(inplace=True)
+                # Match Ultralytics RepVGGDW: depthwise 7x7 and 3x3 branches
+                self.conv = Conv(ch, ch, 7, 1, p=3, g=ch, act=False)
+                self.conv1 = Conv(ch, ch, 3, 1, p=1, g=ch, act=False)
+                self.act = nn.SiLU()
 
             def forward(self, x: torch.Tensor) -> torch.Tensor:
                 return self.act(self.conv(x) + self.conv1(x))

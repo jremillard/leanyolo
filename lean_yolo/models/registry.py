@@ -81,11 +81,12 @@ def _build_y10_config(variant: str) -> Y10Config:
         "l": {13: 512, 16: 256, 19: 512, 22: 512},
         "x": {13: 640, 16: 320, 19: 640, 22: 640},
     }[variant]
+    # Repeats per stage scaled by variant depth multiples (matches Ultralytics logic)
     reps = {
         2: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant],
         4: {"n": 2, "s": 2, "m": 4, "b": 4, "l": 6, "x": 6}[variant],
         6: {"n": 2, "s": 2, "m": 4, "b": 4, "l": 6, "x": 6}[variant],
-        8: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 1, "x": 3}[variant],
+        8: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant],
         13: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant],
         16: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant],
         19: {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant],
@@ -100,11 +101,12 @@ def _build_y10_config(variant: str) -> Y10Config:
         "p3_p4": "C2fCIB" if variant in {"m", "b", "l", "x"} else "C2f",
         "p4_p5": "C2fCIB",
     }
+    # RepVGGDW-like dual-branch flags per YAMLs
+    # Only certain layers/sizes use the extra RepVGGDW branch (lk=True)
     lk = {
-        # Use RepVGGDW-like dual-branch in these blocks
-        "c8": variant in {"s", "x"},
-        "p5_p4": variant in {"x"},
-        "p4_p5": variant in {"n", "s", "x"},
+        "c8": variant in {"s"},           # s: C2fCIB(..., True), others: no lk
+        "p5_p4": False,                    # no lk across sizes
+        "p4_p5": variant in {"n", "s"},    # n/s: C2fCIB(..., True), others: no lk
     }
     return Y10Config(CH=CH, HCH=HCH, reps=reps, types=types, lk=lk)
 

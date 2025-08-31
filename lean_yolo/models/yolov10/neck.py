@@ -20,7 +20,7 @@ class YOLOv10Neck(nn.Module):
         self.upsample = UpSample()
         # P5 -> P4
         if types.get("p5_p4", "C2f") == "C2fCIB":
-            self.p5_p4_c2f = C2fCIB(c5 + c4, HCH[13], n=reps.get(13, 1), lk=lk.get("p5_p4", False))
+            self.p5_p4_c2f = C2fCIB(c5 + c4, HCH[13], n=reps.get(13, 1), shortcut=True, lk=lk.get("p5_p4", False))
         else:
             self.p5_p4_c2f = C2f(c5 + c4, HCH[13], n=reps.get(13, 1))
         # P4 -> P3
@@ -28,12 +28,12 @@ class YOLOv10Neck(nn.Module):
         # P3 -> P4
         self.p3_down = Conv(HCH[16], HCH[16], 3, 2)
         if types.get("p3_p4", "C2f") == "C2fCIB":
-            self.p3_p4_c2f = C2fCIB(HCH[16] + HCH[13], HCH[19], n=reps.get(19, 1))
+            self.p3_p4_c2f = C2fCIB(HCH[16] + HCH[13], HCH[19], n=reps.get(19, 1), shortcut=True)
         else:
             self.p3_p4_c2f = C2f(HCH[16] + HCH[13], HCH[19], n=reps.get(19, 1))
         # P4 -> P5
         self.p4_down = SCDown(HCH[19], HCH[19], 3, 2)
-        self.p4_p5_c2f = C2fCIB(HCH[19] + c5, HCH[22], n=reps.get(22, 1), lk=lk.get("p4_p5", False))
+        self.p4_p5_c2f = C2fCIB(HCH[19] + c5, HCH[22], n=reps.get(22, 1), shortcut=True, lk=lk.get("p4_p5", False))
 
         self.out_c = (HCH[16], HCH[19], HCH[22])
 

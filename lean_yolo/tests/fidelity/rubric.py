@@ -39,6 +39,7 @@ RUBRICS: Dict[str, Rubric] = {
     "yolov10n": Rubric(),
     "yolov10s": Rubric(),
     "yolov10m": Rubric(),
+    "yolov10b": Rubric(),
     "yolov10l": Rubric(),
     "yolov10x": Rubric(),
 }
@@ -58,4 +59,3 @@ def tolerance_summary(model_name: str) -> Dict[str, Tuple[float, float, float | 
         "head": (r.head_tol.rtol, r.head_tol.atol, r.head_tol.max_abs),
         "end2end": (r.end2end_tol.rtol, r.end2end_tol.atol, r.end2end_tol.max_abs),
     }
-
