@@ -71,6 +71,13 @@ with torch.no_grad():
     out = model(x)
 ```
 
+Weight loading notes
+- Official sources only: downloads use the YOLOv10 official releases from `THU-MIG/yolov10` (e.g., v1.1 assets like `yolov10s.pt`). Ultralytics weights are not used here.
+- Offline options:
+  - Set `LEAN_YOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
+  - Pass a local file path to `get_state_dict(local_path=...)`.
+- If weights cannot be found, the model initializes randomly and a warning is emitted.
+
 
 ## CLI 
 

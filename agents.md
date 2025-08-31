@@ -22,6 +22,8 @@ Key capabilities
 - numpy, pillow, opencv-python, tqdm, matplotlib, pycocotools
 - COCO dataset format for data and class definitions
 
+IMPORTANT: Do not use Ultralytics weights or code paths in this project. For pretrained weights, only use the official YOLOv10 release assets from the THU-MIG/yolov10 GitHub repository. This repo vendors a minimal, independent implementation and should not take a runtime dependency on Ultralytics.
+
 ## Project Structure
 
 Planned layout (WIP — not yet present in the repo):
@@ -180,3 +182,6 @@ Tips
 - Prefer CPU for parity snapshots to avoid minor CUDA nondeterminism for unit tests.
 - Keep torch, torchvision, and numpy versions pinned when regenerating references.
 - Track exact commands and seeds for reproducibility.
+
+Note on pretrained weights
+- When downloading pretrained weights via this repo’s APIs, sources are the official THU-MIG/yolov10 GitHub releases (e.g., tag v1.1). Do not fetch or reference Ultralytics weight files.
