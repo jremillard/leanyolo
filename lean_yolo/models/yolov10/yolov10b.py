@@ -27,7 +27,6 @@ class YOLOv10b(nn.Module):
             width_mult=1.00,
             depth_mult=0.67,
             max_channels=512,
-            variant="b",
             cfg=cfg,
         )
         c3, c4, c5 = self.backbone.out_c
@@ -38,7 +37,6 @@ class YOLOv10b(nn.Module):
             c3=c3,
             c4=c4,
             c5=c5,
-            variant="b",
             cfg=cfg,
         )
         p3, p4, p5 = self.neck.out_c
@@ -54,4 +52,3 @@ class YOLOv10b(nn.Module):
         c3, c4, c5 = self.backbone(x)
         p3, p4, p5 = self.neck(c3, c4, c5)
         return self.head((p3, p4, p5))
-

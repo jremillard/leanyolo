@@ -9,7 +9,7 @@ from .layers import Conv, C2f, C2fCIB, SPPF, PSA, SCDown
 
 
 class YOLOv10Backbone(nn.Module):
-    def __init__(self, in_channels: int = 3, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, variant: str = "s", cfg=None):
+    def __init__(self, in_channels: int = 3, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, cfg=None):
         super().__init__()
 
         CH = cfg.CH if cfg is not None else {}

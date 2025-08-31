@@ -9,7 +9,7 @@ from .layers import Conv, C2f, C2fCIB, SCDown, UpSample, make_divisible
 
 
 class YOLOv10Neck(nn.Module):
-    def __init__(self, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, c3: int = 128, c4: int = 256, c5: int = 512, variant: str = "s", cfg=None):
+    def __init__(self, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, c3: int = 128, c4: int = 256, c5: int = 512, cfg=None):
         super().__init__()
 
         HCH = cfg.HCH if cfg is not None else {}
