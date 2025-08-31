@@ -5,7 +5,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 
-from .layers import Conv, C2f, SPPF, make_divisible
+from .layers import Conv, C2f, C2fCIB, SPPF, PSA, SCDown, make_divisible
 
 
 class YOLOv10Backbone(nn.Module):
@@ -16,39 +16,33 @@ class YOLOv10Backbone(nn.Module):
             return min(max_channels, make_divisible(int(ch * width_mult)))
 
         def d(n: int) -> int:
-            # round depth, keep >=1 when n>0
             return max(int(round(n * depth_mult)), 1) if n > 0 else 0
 
-        # Stem
-        self.stem = Conv(in_channels, c(64), 3, 2)
+        # Following YOLOv10s topology (scaled by width/depth multipliers)
+        self.cv0 = Conv(in_channels, c(32), 3, 2)
+        self.cv1 = Conv(c(32), c(64), 3, 2)
+        self.c2 = C2f(c(64), c(64), n=d(1))
+        self.cv3 = Conv(c(64), c(128), 3, 2)
+        self.c4 = C2f(c(128), c(128), n=d(2))
+        self.sc5 = SCDown(c(128), c(256), 3, 2)
+        self.c6 = C2f(c(256), c(256), n=d(2))
+        self.sc7 = SCDown(c(256), c(512), 3, 2)
+        self.c8 = C2fCIB(c(512), c(512), n=d(1))
+        self.sppf9 = SPPF(c(512), c(512))
+        self.psa10 = PSA(c(512), c(512))
 
-        # Stages
-        self.stage2 = nn.Sequential(
-            Conv(c(64), c(128), 3, 2),
-            C2f(c(128), c(128), n=d(3)),
-        )
-        self.stage3 = nn.Sequential(
-            Conv(c(128), c(256), 3, 2),
-            C2f(c(256), c(256), n=d(6)),
-        )
-        self.stage4 = nn.Sequential(
-            Conv(c(256), c(512), 3, 2),
-            C2f(c(512), c(512), n=d(6)),
-        )
-        self.stage5 = nn.Sequential(
-            Conv(c(512), c(1024), 3, 2),
-            C2f(c(1024), c(1024), n=d(3)),
-            SPPF(c(1024), c(1024)),
-        )
-
-        self.out_c = (c(256), c(512), c(1024))
+        self.out_c = (c(128), c(256), c(512))
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        x = self.stem(x)
-        x2 = self.stage2(x)
-        x3 = self.stage3(x2)
-        x4 = self.stage4(x3)
-        x5 = self.stage5(x4)
-        # return C3, C4, C5 pyramid
-        return x3, x4, x5
-
+        x = self.cv0(x)
+        x = self.cv1(x)
+        x = self.c2(x)
+        x = self.cv3(x)
+        c3 = self.c4(x)
+        x = self.sc5(c3)
+        c4 = self.c6(x)
+        x = self.sc7(c4)
+        x = self.c8(x)
+        x = self.sppf9(x)
+        c5 = self.psa10(x)
+        return c3, c4, c5

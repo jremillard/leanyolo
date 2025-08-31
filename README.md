@@ -8,6 +8,7 @@ Clean, minimal PyTorch implementation focused on YOLOv10. Goal: a faithful, read
 
 ## Scope
 - YOLOv10-only: backbone, neck, detection head.
+- Object detection only: this project focuses solely on detection. Segmentation, pose, and OBB are out of scope.
 - Official weights: load checkpoints for sizes `n`, `s`, `m`, `b`, `l`, `x`.
 - PyTorch-native configuration: build models and pass args in Python or via CLI flags; no YAML files.
 

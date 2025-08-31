@@ -69,7 +69,7 @@ def test_first_conv_maps_identically(tmp_path):
     mapped = remap_official_yolov10_to_lean(loaded, model)
 
     # Our first conv weight key
-    first_key = next(k for k in model.state_dict().keys() if k.endswith("stem.conv.weight"))
+    first_key = next(k for k in model.state_dict().keys() if k.endswith("cv0.conv.weight"))
     assert first_key in mapped, "First conv weight was not mapped"
     # Sanity on shape
     assert mapped[first_key].shape == model.state_dict()[first_key].shape

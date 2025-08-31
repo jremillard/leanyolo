@@ -33,10 +33,10 @@ class ModelSpec:
 
 
 _YOLOV10_SPECS: Dict[str, ModelSpec] = {
-    # Conservative, readable defaults; not guaranteed to match official exactly
-    "yolov10n": ModelSpec(depth_mult=0.33, width_mult=0.25, max_channels=512),
-    "yolov10s": ModelSpec(depth_mult=0.33, width_mult=0.50, max_channels=768),
-    "yolov10m": ModelSpec(depth_mult=0.67, width_mult=0.75, max_channels=1024),
+    # Approximations aligned to official YOLOv10 family
+    "yolov10n": ModelSpec(depth_mult=0.33, width_mult=0.50, max_channels=512),
+    "yolov10s": ModelSpec(depth_mult=0.50, width_mult=1.00, max_channels=512),
+    "yolov10m": ModelSpec(depth_mult=0.67, width_mult=1.00, max_channels=768),
     "yolov10b": ModelSpec(depth_mult=0.80, width_mult=1.00, max_channels=1024),
     "yolov10l": ModelSpec(depth_mult=1.00, width_mult=1.00, max_channels=1024),
     "yolov10x": ModelSpec(depth_mult=1.25, width_mult=1.25, max_channels=1280),

@@ -87,3 +87,93 @@ class UpSample(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return nn.functional.interpolate(x, scale_factor=self.scale, mode="nearest")
 
+
+class CIB(nn.Module):
+    def __init__(self, c_in: int, c_out: int, shortcut: bool = True, e: float = 0.5, lk: bool = False):
+        super().__init__()
+        c_hidden = int(c_out * e)
+        # Depthwise 3x3
+        self.cv1 = nn.Sequential(
+            Conv(c_in, c_in, 3, 1, g=c_in),
+            Conv(c_in, 2 * c_hidden, 1, 1),
+            Conv(2 * c_hidden, 2 * c_hidden, 3, 1, g=2 * c_hidden),
+            Conv(2 * c_hidden, c_out, 1, 1),
+            Conv(c_out, c_out, 3, 1, g=c_out),
+        )
+        self.add = shortcut and c_in == c_out
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.cv1(x)
+        return x + y if self.add else y
+
+
+class C2fCIB(nn.Module):
+    def __init__(self, c_in: int, c_out: int, n: int = 1, shortcut: bool = False, lk: bool = False, e: float = 0.5):
+        super().__init__()
+        c = int(c_out * e)
+        self.cv1 = Conv(c_in, 2 * c, 1, 1)
+        self.cv2 = Conv((2 + n) * c, c_out, 1, 1)
+        self.m = nn.ModuleList([CIB(c, c, shortcut, e=1.0, lk=lk) for _ in range(n)])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.cv1(x)
+        y1, y2 = y.chunk(2, 1)
+        ys = [y1, y2]
+        for m in self.m:
+            y2 = m(y2)
+            ys.append(y2)
+        return self.cv2(torch.cat(ys, 1))
+
+
+class Attention(nn.Module):
+    def __init__(self, dim: int, num_heads: int = 8, attn_ratio: float = 0.5):
+        super().__init__()
+        self.num_heads = max(1, num_heads)
+        self.head_dim = dim // self.num_heads
+        self.key_dim = int(self.head_dim * attn_ratio)
+        self.scale = self.key_dim ** -0.5
+        nh_kd = self.key_dim * self.num_heads
+        h = dim + nh_kd * 2
+        self.qkv = Conv(dim, h, 1, 1, act=False)
+        self.proj = Conv(dim, dim, 1, 1, act=False)
+        self.pe = Conv(dim, dim, 3, 1, g=dim, act=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        b, c, h, w = x.shape
+        n = h * w
+        qkv = self.qkv(x)
+        q, k, v = qkv.view(b, self.num_heads, self.key_dim * 2 + self.head_dim, n).split(
+            [self.key_dim, self.key_dim, self.head_dim], dim=2
+        )
+        attn = (q.transpose(-2, -1) @ k) * self.scale
+        attn = attn.softmax(dim=-1)
+        x_attn = (v @ attn.transpose(-2, -1)).view(b, c, h, w) + self.pe(v.reshape(b, c, h, w))
+        x_proj = self.proj(x_attn)
+        return x_proj
+
+
+class PSA(nn.Module):
+    def __init__(self, c_in: int, c_out: int, e: float = 0.5):
+        super().__init__()
+        assert c_in == c_out
+        self.c = int(c_in * e)
+        self.cv1 = Conv(c_in, 2 * self.c, 1, 1)
+        self.cv2 = Conv(2 * self.c, c_in, 1, 1)
+        self.attn = Attention(self.c, attn_ratio=0.5, num_heads=max(1, self.c // 64))
+        self.ffn = nn.Sequential(Conv(self.c, self.c * 2, 1, 1), Conv(self.c * 2, self.c, 1, 1, act=False))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        a, b = self.cv1(x).split((self.c, self.c), dim=1)
+        b = b + self.attn(b)
+        b = b + self.ffn(b)
+        return self.cv2(torch.cat((a, b), dim=1))
+
+
+class SCDown(nn.Module):
+    def __init__(self, c_in: int, c_out: int, k: int = 3, s: int = 2):
+        super().__init__()
+        self.cv1 = Conv(c_in, c_out, 1, 1)
+        self.cv2 = Conv(c_out, c_out, k, s, g=c_out, act=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.cv2(self.cv1(x))
