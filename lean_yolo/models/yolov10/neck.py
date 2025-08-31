@@ -9,43 +9,31 @@ from .layers import Conv, C2f, C2fCIB, SCDown, UpSample, make_divisible
 
 
 class YOLOv10Neck(nn.Module):
-    def __init__(self, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, c3: int = 128, c4: int = 256, c5: int = 512, variant: str = "s"):
+    def __init__(self, width_mult: float = 1.0, depth_mult: float = 1.0, max_channels: int = 1024, c3: int = 128, c4: int = 256, c5: int = 512, variant: str = "s", cfg=None):
         super().__init__()
 
-        def d(n: int) -> int:
-            return max(int(round(n * depth_mult)), 1) if n > 0 else 0
-
-        # Exact per-variant head channels
-        HCH = {
-            "n": {13: 128, 16: 64, 19: 128, 22: 256},
-            "s": {13: 256, 16: 128, 19: 256, 22: 512},
-            "m": {13: 384, 16: 192, 19: 384, 22: 576},
-            "b": {13: 512, 16: 256, 19: 512, 22: 512},
-            "l": {13: 512, 16: 256, 19: 512, 22: 512},
-            "x": {13: 640, 16: 320, 19: 640, 22: 640},
-        }[variant]
+        HCH = cfg.HCH if cfg is not None else {}
+        reps = cfg.reps if cfg is not None else {}
+        types = cfg.types if cfg is not None else {}
+        lk = cfg.lk if cfg is not None else {}
 
         self.upsample = UpSample()
         # P5 -> P4
-        rep13 = {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant]
-        if variant in {"b", "l", "x"}:
-            self.p5_p4_c2f = C2fCIB(c5 + c4, HCH[13], n=rep13, lk=(variant in {"x"}))
+        if types.get("p5_p4", "C2f") == "C2fCIB":
+            self.p5_p4_c2f = C2fCIB(c5 + c4, HCH[13], n=reps.get(13, 1), lk=lk.get("p5_p4", False))
         else:
-            self.p5_p4_c2f = C2f(c5 + c4, HCH[13], n=rep13)
+            self.p5_p4_c2f = C2f(c5 + c4, HCH[13], n=reps.get(13, 1))
         # P4 -> P3
-        rep16 = {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant]
-        self.p4_p3_c2f = C2f(HCH[13] + c3, HCH[16], n=rep16)
+        self.p4_p3_c2f = C2f(HCH[13] + c3, HCH[16], n=reps.get(16, 1))
         # P3 -> P4
         self.p3_down = Conv(HCH[16], HCH[16], 3, 2)
-        rep19 = {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant]
-        if variant in {"m", "b", "l", "x"}:
-            self.p3_p4_c2f = C2fCIB(HCH[16] + HCH[13], HCH[19], n=rep19)
+        if types.get("p3_p4", "C2f") == "C2fCIB":
+            self.p3_p4_c2f = C2fCIB(HCH[16] + HCH[13], HCH[19], n=reps.get(19, 1))
         else:
-            self.p3_p4_c2f = C2f(HCH[16] + HCH[13], HCH[19], n=rep19)
+            self.p3_p4_c2f = C2f(HCH[16] + HCH[13], HCH[19], n=reps.get(19, 1))
         # P4 -> P5
         self.p4_down = SCDown(HCH[19], HCH[19], 3, 2)
-        rep22 = {"n": 1, "s": 1, "m": 2, "b": 2, "l": 3, "x": 3}[variant]
-        self.p4_p5_c2f = C2fCIB(HCH[19] + c5, HCH[22], n=rep22, lk=(variant in {"n", "s", "x"}))
+        self.p4_p5_c2f = C2fCIB(HCH[19] + c5, HCH[22], n=reps.get(22, 1), lk=lk.get("p4_p5", False))
 
         self.out_c = (HCH[16], HCH[19], HCH[22])
 

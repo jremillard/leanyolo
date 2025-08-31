@@ -17,6 +17,7 @@ class YOLOv10Spec:
     depth_mult: float
     width_mult: float
     max_channels: int
+    # variant string is provided via registry ModelSpec
 
 
 class YOLOv10(nn.Module):
@@ -31,7 +32,7 @@ class YOLOv10(nn.Module):
       applied here. That is handled by inference utilities to be added later.
     """
 
-    def __init__(self, num_classes: int = 80, in_channels: int = 3, spec: YOLOv10Spec | None = None):
+    def __init__(self, num_classes: int = 80, in_channels: int = 3, spec: YOLOv10Spec | None = None, cfg=None):
         super().__init__()
         if spec is None:
             spec = YOLOv10Spec(depth_mult=1.0, width_mult=1.0, max_channels=1024)
@@ -42,6 +43,7 @@ class YOLOv10(nn.Module):
             depth_mult=spec.depth_mult,
             max_channels=spec.max_channels,
             variant=getattr(spec, 'variant', 's'),
+            cfg=cfg,
         )
         c3, c4, c5 = self.backbone.out_c
         self.neck = YOLOv10Neck(
@@ -52,6 +54,7 @@ class YOLOv10(nn.Module):
             c4=c4,
             c5=c5,
             variant=getattr(spec, 'variant', 's'),
+            cfg=cfg,
         )
         p3, p4, p5 = self.neck.out_c
         # Use v10Detect head to ensure full weight compatibility
