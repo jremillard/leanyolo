@@ -88,12 +88,11 @@ lean-yolo/
 
 ### Installation Steps
 
-Create and activate a virtual environment (Windows example shown; POSIX alternative commented):
+Create and activate a virtual environment (Linux):
 
 ```
 python -m venv .venv
-.\.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate
 ```
 
 Install dependencies (adjust the PyTorch index URL for your CUDA/CPU build):
@@ -141,12 +140,11 @@ git clone https://github.com/THU-MIG/yolov10.git yolov10-official
 cd yolov10-official
 ```
 
-2) Create a clean environment (CPU shown for reproducibility):
+2) Create a clean environment (CPU shown for reproducibility, Linux):
 
 ```
-python -m venv .venv
-.\.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/macOS
+python -m venv .venv-ref
+source .venv-ref/bin/activate
 ```
 
 3) Install dependencies (match your torch build as needed):

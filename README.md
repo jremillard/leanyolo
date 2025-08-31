@@ -21,11 +21,10 @@ Prerequisites
 - PyTorch (CPU or CUDA build for your hardware)
 - Git
 
-Create an environment (venv example)
+Create an environment (venv on Linux)
 ```
 python -m venv .venv
-.\.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate
 ```
 
 Install dependencies (minimal set; adjust PyTorch index for your CUDA/CPU)
@@ -170,4 +169,3 @@ MIT License — see `LICENSE` for details.
 ## Acknowledgements
 - Inspired by the YOLO family and community implementations.
 - Thanks to the PyTorch community and contributors to related tooling.
-
