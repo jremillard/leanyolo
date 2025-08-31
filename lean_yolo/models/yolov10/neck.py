@@ -5,7 +5,7 @@ from typing import Tuple, Dict
 import torch
 import torch.nn as nn
 
-from .layers import Conv, C2f, C2fCIB, SCDown, UpSample, make_divisible
+from .layers import Conv, C2f, C2fCIB, SCDown, UpSample
 
 
 class YOLOv10Neck(nn.Module):
