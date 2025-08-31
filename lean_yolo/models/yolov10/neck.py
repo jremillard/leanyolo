@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Dict
 
 import torch
 import torch.nn as nn
@@ -9,13 +9,19 @@ from .layers import Conv, C2f, C2fCIB, SCDown, UpSample, make_divisible
 
 
 class YOLOv10Neck(nn.Module):
-    def __init__(self, *, c3: int, c4: int, c5: int, cfg):
+    def __init__(
+        self,
+        *,
+        c3: int,
+        c4: int,
+        c5: int,
+        HCH: Dict[int, int],
+        reps: Dict[int, int],
+        types: Dict[str, str],
+        lk: Dict[str, bool],
+    ):
         super().__init__()
 
-        HCH = cfg.HCH if cfg is not None else {}
-        reps = cfg.reps if cfg is not None else {}
-        types = cfg.types if cfg is not None else {}
-        lk = cfg.lk if cfg is not None else {}
 
         self.upsample = UpSample(scale_factor=2.0)
         # P5 -> P4

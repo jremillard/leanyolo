@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import List
 
 import torch
@@ -20,11 +19,23 @@ class YOLOv10n(nn.Module):
 
     def __init__(self, *, num_classes: int, in_channels: int):
         super().__init__()
-        cfg = SimpleNamespace(CH=self.CH, HCH=self.HCH, reps=self.REPS, types=self.TYPES, lk=self.LK)
-
-        self.backbone = YOLOv10Backbone(in_channels=in_channels, cfg=cfg)
+        self.backbone = YOLOv10Backbone(
+            in_channels=in_channels,
+            CH=self.CH,
+            reps=self.REPS,
+            types=self.TYPES,
+            lk=self.LK,
+        )
         c3, c4, c5 = self.backbone.out_c
-        self.neck = YOLOv10Neck(c3=c3, c4=c4, c5=c5, cfg=cfg)
+        self.neck = YOLOv10Neck(
+            c3=c3,
+            c4=c4,
+            c5=c5,
+            HCH=self.HCH,
+            reps=self.REPS,
+            types=self.TYPES,
+            lk=self.LK,
+        )
         p3, p4, p5 = self.neck.out_c
         self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)
         self._init_head_bias()
