@@ -4,6 +4,8 @@
 
 Clean, minimal PyTorch implementation focused on YOLOv10. The goal is a faithful, readable YOLOv10 port that can load official pretrained weights across standard sizes using typical PyTorch conventions (no YAML configs).
 
+Status: this repository currently contains documentation and planning. Code scaffolding (modules/CLI) is in progress.
+
 Note: For a fuller overview, usage examples (Python API and CLI), and the latest details, also read `README.md`.
 
 Key capabilities
@@ -22,38 +24,18 @@ Key capabilities
 
 ## Project Structure
 
+Planned layout (WIP — not yet present in the repo):
 ```
 lean-yolo/
   README.md
   LICENSE
   lean_yolo/
     __init__.py
-    models/
-      yolov10/
-        __init__.py
-        backbone.py
-        neck.py
-        head.py
-        model.py
-    data/
-      dataset.py
-      transforms.py
-      collate.py
-    engine/
-      train.py
-      eval.py
-      infer.py
-    utils/
-      metrics.py
-      box_ops.py
-      losses.py
-      viz.py
-    tests/
-      test_backbone.py
-      test_neck.py
-      test_head.py
-      test_model.py
-      test_output_parity.py
+    models/yolov10/{backbone.py, neck.py, head.py, model.py}
+    data/{dataset.py, transforms.py, collate.py}
+    engine/{train.py, eval.py, infer.py}
+    utils/{metrics.py, box_ops.py, losses.py, viz.py}
+    tests/{test_backbone.py, test_neck.py, test_head.py, test_model.py, test_output_parity.py}
   train.py
   val.py
   infer.py
@@ -80,6 +62,22 @@ lean-yolo/
 
 ## Environment Setup
 
+### Environment Policy (Required)
+
+- All Python commands and unit tests for this repository must be executed inside the local virtual environment `.venv`.
+- When benchmarking or generating parity data from the official YOLOv10 implementation, all Python commands must be executed inside that repo’s dedicated environment `.venv-ref`.
+- Do not use the system Python. Either activate the environment or call the interpreter explicitly.
+
+Examples
+- Repo dev (this repo): `source .venv/bin/activate` then run `python`, `pip`, `pytest`; or use explicit paths `./.venv/bin/python`, `./.venv/bin/pytest`.
+- Official benchmarking (yolov10-official): `source .venv-ref/bin/activate` or `./.venv-ref/bin/python ...`.
+
+Quick checks
+```
+./.venv/bin/python -c "import sys; print(sys.executable)"   # should resolve to .venv
+./.venv/bin/pytest -q                                       # run tests (when available)
+```
+
 ### Development Requirements
 
 - Python 3.9+ (3.10/3.11 recommended)
@@ -88,29 +86,35 @@ lean-yolo/
 
 ### Installation Steps
 
-Create and activate a virtual environment (Linux):
+Create and activate a virtual environment (Linux/macOS):
 
 ```
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies (adjust the PyTorch index URL for your CUDA/CPU build):
+Install PyTorch (CUDA build by default):
 
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-pip install numpy pillow opencv-python tqdm matplotlib pycocotools
 ```
 
-Optional quick check in Python:
+Notes
+- This installs CUDA-enabled wheels (cu12x). They run on CPU as well; GPU is used if available.
+- If you need CPU-only wheels, switch to the CPU index.
+
+Install project dependencies:
+
+```
+pip install -r requirements.txt
+```
+
+Optional quick check in Python (placeholder; modules not yet implemented):
 
 ```python
 import torch
-from lean_yolo.models import get_model
-model = get_model("yolov10s", weights="DEFAULT")
-model.eval()
-with torch.no_grad():
-    out = model(torch.zeros(1, 3, 640, 640))
+print(torch.__version__)
+print("Torch installed and GPU available?", torch.cuda.is_available())
 ```
 
 Dataset layout (COCO):
@@ -171,4 +175,3 @@ Tips
 - Prefer CPU for parity snapshots to avoid minor CUDA nondeterminism for unit tests.
 - Keep torch, torchvision, and numpy versions pinned when regenerating references.
 - Track exact commands and seeds for reproducibility.
-

@@ -2,6 +2,10 @@
 
 Clean, minimal PyTorch implementation focused on YOLOv10. Goal: a faithful, readable YOLOv10 port that can load official pretrained weights across standard sizes using typical PyTorch conventions (no YAML configs).
 
+## Status
+- Repository currently contains documentation and scaffolding. Core code (models/CLI) is a work-in-progress.
+- Follow this README and `agents.md` for environment setup and roadmap.
+
 ## Scope
 - YOLOv10-only: backbone, neck, detection head.
 - Official weights: load checkpoints for sizes `n`, `s`, `m`, `b`, `l`, `x`.
@@ -16,21 +20,25 @@ Clean, minimal PyTorch implementation focused on YOLOv10. Goal: a faithful, read
 
 ## Getting Started
 
-Prerequisites
-- Python 3.9+ (3.10/3.11 recommended)
-- PyTorch (CPU or CUDA build for your hardware)
-- Git
+- Prerequisites: Python 3.9+ (3.10/3.11 recommended), Git
 
-Create an environment (venv on Linux)
+Create and activate a virtual environment (Linux/macOS):
 ```
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies (minimal set; adjust PyTorch index for your CUDA/CPU)
+Install PyTorch (CUDA build by default):
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-pip install numpy pillow opencv-python tqdm matplotlib pycocotools
+```
+Notes
+- This installs CUDA-enabled wheels (cu12x). They run on CPU too; GPU is used if available.
+- If you explicitly want CPU-only wheels, use the CPU index instead.
+
+Install project dependencies:
+```
+pip install -r requirements.txt
 ```
 
 ## Python API
@@ -66,44 +74,7 @@ with torch.no_grad():
 
 ## CLI 
 
-Typical flags configure everything directly; pass paths and sizes explicitly.
-
-Train
-```
-python train.py \
-  --model yolov10 \
-  --weights weights/yolov10s.pt \
-  --train-coco data/annotations/instances_train2017.json \
-  --train-images data/images/train2017 \
-  --val-coco data/annotations/instances_val2017.json \
-  --val-images data/images/val2017 \
-  --epochs 300 --batch 16 --img 640 --device 0
-```
-
-Validate
-```
-python val.py \
-  --model yolov10 \
-  --weights runs/exp0/weights/best.pt \
-  --val-coco data/annotations/instances_val2017.json \
-  --val-images data/images/val2017 \
-  --img 640 --batch 16 --device 0
-```
-
-Inference
-```
-python infer.py \
-  --model yolov10 \
-  --weights runs/exp0/weights/best.pt \
-  --source path/to/images_or_video \
-  --coco-classes data/annotations/instances_val2017.json \
-  --img 640 --conf 0.25 --device 0
-```
-
-Export
-```
-python export.py --model yolov10s --weights best.pt --format onnx --img 640 --device cpu
-```
+Planned. CLI entrypoints (`train.py`, `val.py`, `infer.py`, `export.py`) will be added as the implementation lands.
 
 Notes
 - Training requires COCO JSON annotation format (standard COCO dataset structure).
