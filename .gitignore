@@ -152,6 +152,12 @@ venv-ref/
 .venv-ref/
 yolov10-official/
 
+# COCO datasets (do not commit images or labels)
+data/coco/images/
+data/coco/annotations/
+data/coco/*/images/
+data/coco/*/annotations.json
+
 # Spyder project settings
 .spyderproject
 .spyproject
