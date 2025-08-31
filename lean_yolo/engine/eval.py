@@ -53,8 +53,7 @@ def validate_coco(
     for p in img_paths:
         img = cv2.cvtColor(cv2.imread(str(p), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         orig_shape = img.shape[:2]
-        # Match official val preprocessing: do not scale up images (scaleup=False)
-        lb_img, gain, pad = letterbox(img, new_shape=imgsz, scaleup=False)
+        lb_img, gain, pad = letterbox(img, new_shape=imgsz)
         x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
 
         preds = model(x)
