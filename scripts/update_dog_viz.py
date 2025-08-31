@@ -36,7 +36,7 @@ from lean_yolo.utils.viz import draw_detections
 DOG_URL = "https://github.com/pjreddie/darknet/raw/master/data/dog.jpg"
 DOG_PATH = Path("dog.jpg")
 OUT_PATH = Path("dog_viz.jpg")
-MODEL = "yolov10s"
+MODEL = "yolov10l"
 IMGSZ = 640
 CONF = 0.25
 IOU = 0.45
@@ -99,4 +99,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
