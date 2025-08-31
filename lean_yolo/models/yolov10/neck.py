@@ -18,7 +18,8 @@ class YOLOv10Neck(nn.Module):
         HCH: Dict[int, int],
         reps: Dict[int, int],
         types: Dict[str, str],
-        lk: Dict[str, bool],
+        use_lk_p5_p4: bool,
+        use_lk_p4_p5: bool,
     ):
         super().__init__()
 
@@ -26,7 +27,7 @@ class YOLOv10Neck(nn.Module):
         self.upsample = UpSample(scale_factor=2.0)
         # P5 -> P4
         if types.get("p5_p4", "C2f") == "C2fCIB":
-            self.p5_p4_c2f = C2fCIB(c_in=c5 + c4, c_out=HCH[13], n=reps.get(13, 1), shortcut=True, lk=lk.get("p5_p4", False), e=0.5)
+            self.p5_p4_c2f = C2fCIB(c_in=c5 + c4, c_out=HCH[13], n=reps.get(13, 1), shortcut=True, lk=use_lk_p5_p4, e=0.5)
         else:
             self.p5_p4_c2f = C2f(c_in=c5 + c4, c_out=HCH[13], n=reps.get(13, 1), shortcut=False, g=1, e=0.5)
         # P4 -> P3
@@ -39,7 +40,7 @@ class YOLOv10Neck(nn.Module):
             self.p3_p4_c2f = C2f(c_in=HCH[16] + HCH[13], c_out=HCH[19], n=reps.get(19, 1), shortcut=False, g=1, e=0.5)
         # P4 -> P5
         self.p4_down = SCDown(c_in=HCH[19], c_out=HCH[19], k=3, s=2)
-        self.p4_p5_c2f = C2fCIB(c_in=HCH[19] + c5, c_out=HCH[22], n=reps.get(22, 1), shortcut=True, lk=lk.get("p4_p5", False), e=0.5)
+        self.p4_p5_c2f = C2fCIB(c_in=HCH[19] + c5, c_out=HCH[22], n=reps.get(22, 1), shortcut=True, lk=use_lk_p4_p5, e=0.5)
 
         self.out_c = (HCH[16], HCH[19], HCH[22])
 

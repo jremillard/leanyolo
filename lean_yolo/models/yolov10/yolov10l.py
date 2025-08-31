@@ -24,7 +24,7 @@ class YOLOv10l(nn.Module):
             CH=self.CH,
             reps=self.REPS,
             types=self.TYPES,
-            lk=self.LK,
+            use_lk_c8=self.LK.get("c8", False),
         )
         c3, c4, c5 = self.backbone.out_c
         self.neck = YOLOv10Neck(
@@ -34,7 +34,8 @@ class YOLOv10l(nn.Module):
             HCH=self.HCH,
             reps=self.REPS,
             types=self.TYPES,
-            lk=self.LK,
+            use_lk_p5_p4=self.LK.get("p5_p4", False),
+            use_lk_p4_p5=self.LK.get("p4_p5", False),
         )
         p3, p4, p5 = self.neck.out_c
         self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)

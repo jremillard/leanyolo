@@ -16,7 +16,7 @@ class YOLOv10Backbone(nn.Module):
         CH: Dict[int, int],
         reps: Dict[int, int],
         types: Dict[str, str],
-        lk: Dict[str, bool],
+        use_lk_c8: bool,
     ):
         super().__init__()
 
@@ -33,7 +33,7 @@ class YOLOv10Backbone(nn.Module):
             self.c6 = C2f(c_in=CH[5], c_out=CH[6], n=reps.get(6, 1), shortcut=True, g=1, e=0.5)
         self.sc7 = SCDown(c_in=CH[6], c_out=CH[7], k=3, s=2)
         if types.get("c8", "C2f") == "C2fCIB":
-            self.c8 = C2fCIB(c_in=CH[7], c_out=CH[8], n=reps.get(8, 1), shortcut=True, lk=lk.get("c8", False), e=0.5)
+            self.c8 = C2fCIB(c_in=CH[7], c_out=CH[8], n=reps.get(8, 1), shortcut=True, lk=use_lk_c8, e=0.5)
         else:
             self.c8 = C2f(c_in=CH[7], c_out=CH[8], n=reps.get(8, 1), shortcut=True, g=1, e=0.5)
         self.sppf9 = SPPF(c_in=CH[8], c_out=CH[9], k=5)
