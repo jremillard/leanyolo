@@ -32,7 +32,13 @@ def validate_coco(
     save_json: str | None = None,
 ) -> Dict[str, float]:
     device_t = torch.device(device)
-    images_dir, ann_json = ensure_coco_val(data_root, download=False)
+    root = Path(data_root)
+    subset_ann = root / "annotations.json"
+    subset_imgs = root / "images"
+    if subset_ann.exists() and subset_imgs.exists():
+        images_dir, ann_json = subset_imgs, subset_ann
+    else:
+        images_dir, ann_json = ensure_coco_val(data_root, download=False)
     img_paths = list_images(images_dir)
     if max_images is not None:
         img_paths = img_paths[:max_images]
