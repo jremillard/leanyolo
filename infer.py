@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+Inference script and example pipeline.
+
+This script is designed to be copied and tweaked:
+- Reads an image or directory, applies letterbox, and runs YOLOv10
+- Decodes detections, rescales back, and writes visualization images
+- Uses PyTorch-native `get_model` API (no YAML)
+"""
+
 import argparse
 import os
 from pathlib import Path
@@ -55,6 +64,11 @@ def infer_paths(
     save_dir: str = "runs/infer/exp",
     class_names: List[str] | None = None,
 ) -> List[Tuple[str, torch.Tensor]]:
+    """Run inference on a path or directory and save visualizations.
+
+    Returns a list of (input_path, detections_tensor) pairs. Designed as
+    reference code you can copy into your apps.
+    """
     device_t = torch.device(device)
     cn = class_names or coco80_class_names()
     model = get_model(

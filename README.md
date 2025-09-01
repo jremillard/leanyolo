@@ -99,9 +99,13 @@ Weight loading notes
 
 ## CLI 
 
-CLI entrypoints
-- `infer.py`: basic inference with letterbox preprocessing and NMS
-- `val.py`: COCO validation (downloads val2017 on demand)
+CLI entrypoints (copy/paste friendly)
+- `infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
+- `val.py`: COCO validation (downloads val2017 on demand) and JSON export
+- `train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
+
+These scripts are intentionally simple and serve as example code. Feel free to
+copy/paste and adapt them for your own datasets and pipelines.
 
 Notes
 - Training requires COCO JSON annotation format (standard COCO dataset structure).

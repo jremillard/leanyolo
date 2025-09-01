@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+Minimal training script (baseline) and example usage.
+
+This file is intentionally compact and explicit so you can copy/paste and
+adapt it to your needs. It shows how to:
+- Build a YOLOv10 model via `get_model`
+- Create COCO-style datasets and a DataLoader
+- Train with a simple loss and evaluate mAP each epoch
+- Save per-epoch checkpoints you can later load
+"""
+
 import argparse
 import json
 import os
@@ -35,9 +46,10 @@ def evaluate_coco(
     conf: float = 0.001,
     iou: float = 0.65,
 ) -> Dict[str, float]:
-    """Run full COCO-style mAP evaluation using the given model and dataset.
+    """Compute COCO-style mAP for a trained model.
 
-    Returns dict with keys: mAP50-95, mAP50, mAP75.
+    Returns a dict with keys mAP50-95, mAP50, mAP75. Kept small on purpose so
+    you can transplant it into your own training scripts.
     """
     import cv2
     from pycocotools.coco import COCO
@@ -114,6 +126,7 @@ def evaluate_coco(
 
 
 def parse_args() -> argparse.Namespace:
+    """CLI for basic training. See README for dataset layout."""
     p = argparse.ArgumentParser(description="Train YOLOv10 on COCO-format dataset (basic trainer)")
     # Data
     p.add_argument("--train-images", required=True, help="Path to training images directory")
@@ -141,6 +154,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Train a YOLOv10 model on a COCO-style dataset (baseline)."""
     args = parse_args()
     device = torch.device(args.device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
 

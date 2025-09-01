@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+"""
+COCO validation script and example pipeline.
+
+This file doubles as copy‑and‑paste friendly sample code for using leanyolo:
+- Loads a YOLOv10 model via `get_model` (no YAML)
+- Preprocesses with letterbox, runs forward + decode, and evaluates with COCOeval
+- Can save JSON detections and visualization images
+
+Design goal: be easy to read and modify for your own datasets.
+"""
+
 import argparse
 import json
 from pathlib import Path
@@ -51,6 +62,12 @@ def validate_coco(
     ann_json: str | None = None,
     save_viz_dir: str | None = None,
 ) -> Dict[str, float]:
+    """Run COCO mAP on a folder + annotations.
+
+    Arguments mirror the CLI. Returns a dict with mAP metrics. The function is
+    intentionally small and explicit so you can copy it into your own projects
+    and adapt as needed.
+    """
     device_t = torch.device(device)
     root = Path(data_root)
     if images_dir is None or ann_json is None:
