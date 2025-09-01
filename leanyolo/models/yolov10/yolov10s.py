@@ -15,6 +15,18 @@ Input format:
 - Color order: RGB (not BGR)
 - Dtype/range: float32 in [0, 1] (scale by 1/255)
 - Tip: If loading images with OpenCV (BGR), convert to RGB first
+
+Output format:
+- Returns a list of 3 tensors [P3, P4, P5]
+- Each tensor has shape (N, 4*reg_max + num_classes, H, W)
+- Channels 0..(4*reg_max-1): DFL logits for [l, t, r, b] distances
+- Channels (4*reg_max)..: class logits (unnormalized)
+- Post-processing: use leanyolo.utils.postprocess.decode_predictions and NMS
+
+Note:
+- These YOLOv10x classes (family) are raw model modules. For inference, wrap
+  preprocessing (RGB, letterbox, normalization) and postprocessing (decode,
+  NMS, unletterbox). See leanyolo.engine.infer for a reference pipeline.
 """
 
 from typing import List
