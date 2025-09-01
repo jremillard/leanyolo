@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 from leanyolo.models import get_model
 from leanyolo.data.coco_simple import CocoDetection, coco_collate
-from leanyolo.utils.losses_basic import detection_loss_naive
+from leanyolo.utils.losses_v10 import detection_loss_v10
 
 
 def load_class_names_from_coco(ann_path: str) -> List[str]:
@@ -43,8 +43,10 @@ def evaluate_coco(
     *,
     imgsz: int,
     device: str,
-    conf: float = 0.001,
+    conf: float = 0.25,
     iou: float = 0.65,
+    progress: bool = False,
+    log_every: int = 20,
 ) -> Dict[str, float]:
     """Compute COCO-style mAP for a trained model.
 
@@ -74,7 +76,10 @@ def evaluate_coco(
     fname_to_id = {img["file_name"]: int(img["id"]) for img in imgs_info}
 
     results = []
-    for p in img_paths:
+    total = len(img_paths)
+    if progress:
+        print(f"[eval] Running inference on {total} images (conf={conf}, iou={iou})...")
+    for idx, p in enumerate(img_paths, 1):
         bgr = cv2.imread(str(p), cv2.IMREAD_COLOR)
         if bgr is None:
             continue
@@ -109,6 +114,8 @@ def evaluate_coco(
                     "score": float(score),
                 }
             )
+        if progress and (idx % max(1, log_every) == 0 or idx == total):
+            print(f"[eval] {idx}/{total} images processed; results so far: {len(results)}")
 
     if not results:
         return {"mAP50-95": 0.0, "mAP50": 0.0, "mAP75": 0.0}
@@ -150,6 +157,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--freeze-backbone", action="store_true")
     p.add_argument("--head-reset", action="store_true")
     p.add_argument("--save-dir", default="runs/train/exp")
+    # Eval
+    p.add_argument("--eval-conf", type=float, default=0.25, help="Eval confidence threshold (higher = faster)")
+    p.add_argument("--eval-iou", type=float, default=0.65, help="Eval IoU threshold for NMS")
+    p.add_argument("--eval-progress", action="store_true", help="Print progress during evaluation")
     return p.parse_args()
 
 
@@ -217,7 +228,7 @@ def main() -> None:
             for i, (x, targets) in enumerate(train_loader, 1):
                 x = x.to(device, non_blocking=True)
                 raw = model(x)
-                loss_dict = detection_loss_naive(raw, targets, num_classes=len(class_names))
+                loss_dict = detection_loss_v10(raw, targets, num_classes=len(class_names))
                 loss = loss_dict["total"]
                 optim.zero_grad()
                 loss.backward()
@@ -233,7 +244,7 @@ def main() -> None:
             for x, targets in pbar:
                 x = x.to(device, non_blocking=True)
                 raw = model(x)
-                loss_dict = detection_loss_naive(raw, targets, num_classes=len(class_names))
+                loss_dict = detection_loss_v10(raw, targets, num_classes=len(class_names))
                 loss = loss_dict["total"]
                 optim.zero_grad()
                 loss.backward()
@@ -247,7 +258,17 @@ def main() -> None:
         # Full mAP evaluation on val
         model.eval()
         with torch.no_grad():
-            stats = evaluate_coco(model, args.val_images, args.val_ann, imgsz=args.imgsz, device=args.device)
+            stats = evaluate_coco(
+                model,
+                args.val_images,
+                args.val_ann,
+                imgsz=args.imgsz,
+                device=args.device,
+                conf=args.eval_conf,
+                iou=args.eval_iou,
+                progress=args.eval_progress,
+                log_every=20,
+            )
         print({k: round(v, 5) for k, v in stats.items()})
 
         # Save checkpoint each epoch

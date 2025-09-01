@@ -59,44 +59,68 @@ def main() -> None:
             print(e)
             return
 
-    # Try to locate COCO-style annotations in the extracted content
-    # Heuristic: look for *train*.json and *val*.json under raw
+    # Try to locate COCO-style annotations and split folders in extracted content
+    # Heuristics:
+    # - JSONs may be named `_annotations.coco.json` inside split dirs
+    # - Split directories commonly named `train`, `valid`/`val`
     train_json = None
     val_json = None
     images_train = None
     images_val = None
-    for pth in raw.rglob("*.json"):
-        name = pth.name.lower()
-        if "train" in name and ("ann" in name or "json" in name):
-            train_json = pth
-        if ("val" in name or "valid" in name) and ("ann" in name or "json" in name):
-            val_json = pth
     for d in raw.rglob("*"):
-        if d.is_dir():
-            dn = d.name.lower()
-            if dn in ("train", "training"):
-                images_train = d
-            if dn in ("val", "valid", "validation"):
-                images_val = d
+        if not d.is_dir():
+            continue
+        dn = d.name.lower()
+        if dn in ("train", "training"):
+            images_train = d
+            cand = d / "_annotations.coco.json"
+            if cand.exists():
+                train_json = cand
+        if dn in ("val", "valid", "validation"):
+            images_val = d
+            cand = d / "_annotations.coco.json"
+            if cand.exists():
+                val_json = cand
+    # Fallback: scan for any jsons mentioning train/val
+    if train_json is None or val_json is None:
+        for pth in raw.rglob("*.json"):
+            name = pth.name.lower()
+            if train_json is None and "train" in name:
+                train_json = pth
+            if val_json is None and ("val" in name or "valid" in name):
+                val_json = pth
 
     # Prepare output layout
     (root / "images").mkdir(parents=True, exist_ok=True)
     out_train = root / "images" / "train"
     out_val = root / "images" / "val"
-    out_train.mkdir(parents=True, exist_ok=True)
-    out_val.mkdir(parents=True, exist_ok=True)
+    # If symlinking entire dirs is possible, replace existing empty dirs with symlinks
+    def _link_dir(src: Path, dst: Path) -> None:
+        if src is None:
+            return
+        try:
+            if dst.exists() and dst.is_dir() and not any(dst.iterdir()):
+                dst.rmdir()
+            if not dst.exists():
+                os.symlink(str(src.resolve()), str(dst), target_is_directory=True)
+                return
+        except Exception:
+            pass
+        # Fallback: ensure dst exists, copy files if empty
+        dst.mkdir(parents=True, exist_ok=True)
+        if not any(dst.iterdir()):
+            for p in src.glob("*.jpg"):
+                try:
+                    os.link(str(p.resolve()), str(dst / p.name))
+                except Exception:
+                    import shutil
+                    shutil.copy2(p, dst)
 
     # Symlink images if found
     if images_train and images_train.exists():
-        try:
-            os.symlink(str(images_train.resolve()), str(out_train), target_is_directory=True)
-        except Exception:
-            pass
+        _link_dir(images_train, out_train)
     if images_val and images_val.exists():
-        try:
-            os.symlink(str(images_val.resolve()), str(out_val), target_is_directory=True)
-        except Exception:
-            pass
+        _link_dir(images_val, out_val)
 
     # Link annotations if found
     if train_json:
@@ -118,4 +142,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
