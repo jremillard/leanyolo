@@ -83,7 +83,8 @@ x = torch.zeros(1, 3, 640, 640)
 model.post_conf_thresh = 0.25  # confidence threshold (after sigmoid)
 model.post_iou_thresh = 0.45   # IoU threshold for NMS (higher keeps more overlaps)
 with torch.no_grad():
-    dets_per_img = model(x)  # List[List[Tensor]]
+    raw = model(x)  # [P3,P4,P5] raw tensors in training/eval
+    dets_per_img = model.decode_forward(raw)
     dets = dets_per_img[0][0]  # [N,6]
     # x1,y1 = top-left; x2,y2 = bottom-right (pixels in input letterbox space)
 ```

@@ -96,17 +96,28 @@ class YOLOv10x(nn.Module):
             x = x / self.input_divide
         c3, c4, c5 = self.backbone(x)
         p3, p4, p5 = self.neck(c3, c4, c5)
-        raw = self.head((p3, p4, p5))
-        if self.training:
-            return raw
+        return self.head((p3, p4, p5))
+
+    def decode_forward(self, raw: List[torch.Tensor]):
+        """Decode raw head outputs into final detections per image.
+
+        Returns: List[List[Tensor]] with one entry per image; each inner tensor
+        has shape [N, 6] where the columns are:
+        - x1, y1: top-left corner in pixels (input letterboxed size)
+        - x2, y2: bottom-right corner in pixels
+        - score: confidence score (max class probability)
+        - cls: class index (float; cast to int as needed)
+        """
         conf = getattr(self, "post_conf_thresh", 0.25)
         iou = getattr(self, "post_iou_thresh", 0.45)
         mdet = getattr(self, "post_max_det", 300)
-        ih, iw = int(x.shape[-2]), int(x.shape[-1])
+        strides = (8, 16, 32)
+        _, _, h3, w3 = raw[0].shape
+        ih, iw = h3 * strides[0], w3 * strides[0]
         return decode_v10_predictions(
             raw,
             num_classes=len(self.class_names),
-            strides=(8, 16, 32),
+            strides=strides,
             conf_thresh=conf,
             iou_thresh=iou,
             max_det=mdet,

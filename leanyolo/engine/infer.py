@@ -71,10 +71,11 @@ def infer_paths(
             img = _imread_rgb(str(ipath))
             lb_img, gain, pad = letterbox(img, new_shape=imgsz)
             x = _to_tensor(lb_img, device_t)
-            # Set decode thresholds on model and run; eval() already set
+            # Set decode thresholds and run: forward gives raw; decode_forward returns detections
             model.post_conf_thresh = conf
             model.post_iou_thresh = iou
-            dets = model(x)[0][0]
+            raw = model(x)
+            dets = model.decode_forward(raw)[0][0]
             # Scale back to original image size
             if dets.numel() > 0:
                 dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=img.shape[:2])

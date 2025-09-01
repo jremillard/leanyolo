@@ -65,7 +65,8 @@ def validate_coco(
         lb_img, gain, pad = letterbox(img, new_shape=imgsz)
         x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().unsqueeze(0)
 
-        dets = model(x)[0][0]
+        raw = model(x)
+        dets = model.decode_forward(raw)[0][0]
         if dets.numel() == 0:
             continue
         # Scale boxes back

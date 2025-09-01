@@ -77,7 +77,8 @@ def main() -> None:
     with torch.no_grad():
         model.post_conf_thresh = CONF
         model.post_iou_thresh = IOU
-        dets = model(x)[0][0]
+        raw = model(x)
+        dets = model.decode_forward(raw)[0][0]
     if dets.numel() > 0:
         dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=rgb.shape[:2])
 
