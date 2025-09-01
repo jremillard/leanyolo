@@ -11,8 +11,8 @@ from .report_utils import record_report
 
 
 def _load_lean_with_official_weights(model_name: str):
-    from lean_yolo.models import get_model, get_model_weights
-    from lean_yolo.utils.remap import remap_official_yolov10_to_lean
+    from leanyolo.models import get_model, get_model_weights
+    from leanyolo.utils.remap import remap_official_yolov10_to_lean
 
     m = get_model(model_name, weights=None)
 
@@ -26,7 +26,7 @@ def _load_lean_with_official_weights(model_name: str):
     from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
 
     entry = get_model_weights(model_name)().get(model_name, "DEFAULT")
-    wdir = os.environ.get("LEAN_YOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "lean_yolo"))
+    wdir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
     wpath = os.path.join(wdir, entry.filename or f"{model_name}.pt")
     if not os.path.exists(wpath):
         os.makedirs(wdir, exist_ok=True)
@@ -106,4 +106,3 @@ def run_all(variants=None):
 if __name__ == "__main__":  # pragma: no cover
     s = run_all()
     print(s)
-

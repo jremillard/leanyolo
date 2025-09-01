@@ -70,7 +70,7 @@ class _YOLOv10Weights(WeightsResolver):
     """Weight resolver for YOLOv10 families.
 
     This uses placeholders for URLs to avoid implicit downloads. Provide a
-    local path or set the LEAN_YOLO_WEIGHTS_DIR env var to enable loading.
+    local path or set the LEANYOLO_WEIGHTS_DIR env var to enable loading.
     """
 
     # Official YOLOv10 weights from THU-MIG GitHub releases (v1.1)

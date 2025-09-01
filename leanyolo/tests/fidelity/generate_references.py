@@ -3,14 +3,14 @@ from __future__ import annotations
 """
 Generate reference outputs from the official YOLOv10 implementation for a set of
 pretrained weights and deterministic inputs. These references are used by the
-fidelity tests to verify the lean-yolo implementation.
+fidelity tests to verify the leanyolo implementation.
 
 Usage:
-  python -m lean_yolo.tests.fidelity.generate_references --sizes n s m l x --img 320
+  python -m leanyolo.tests.fidelity.generate_references --sizes n s m l x --img 320
 
 Environment:
-  - LEAN_YOLO_CACHE_DIR may be set to point to weights cache.
-  - LEAN_YOLO_WEIGHTS_DIR may be set to a directory holding weight files.
+  - LEANYOLO_CACHE_DIR may be set to point to weights cache.
+  - LEANYOLO_WEIGHTS_DIR may be set to a directory holding weight files.
 """
 
 import argparse
@@ -42,11 +42,11 @@ def _variant_name(size: str) -> str:
 
 def _weights_path_for(model_name: str) -> str:
     # Use the project's weight resolver metadata to download to cache if missing, without torch.load.
-    from lean_yolo.models import get_model_weights
+    from leanyolo.models import get_model_weights
 
     weights_enum = get_model_weights(model_name)()
     entry = weights_enum.get(model_name, "DEFAULT")
-    cache_dir = os.environ.get("LEAN_YOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "lean_yolo"))
+    cache_dir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
     filename = entry.filename or f"{model_name}.pt"
     path = os.path.join(cache_dir, filename)
     if not os.path.exists(path):

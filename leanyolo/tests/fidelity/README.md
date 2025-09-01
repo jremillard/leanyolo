@@ -1,6 +1,6 @@
 # Fidelity Testing Framework
 
-Purpose: verify that the lean-yolo implementation reproduces the official YOLOv10 outputs across all official pretrained weights (n, s, m, l, x), focusing purely on functional correctness.
+Purpose: verify that the leanyolo implementation reproduces the official YOLOv10 outputs across all official pretrained weights (n, s, m, l, x), focusing purely on functional correctness.
 
 ## Rubric
 
@@ -27,13 +27,13 @@ Official reference extraction hooks use stable indices from the YAML graphs: bac
 
 ## Data and Artifacts
 
-- Inputs: deterministic tensors saved under `lean_yolo/tests/data/inputs/x_320.pt` (auto-generated on first run if missing).
-- References: per-model tensors saved under `lean_yolo/tests/data/refs/<model>/`:
+- Inputs: deterministic tensors saved under `leanyolo/tests/data/inputs/x_320.pt` (auto-generated on first run if missing).
+- References: per-model tensors saved under `leanyolo/tests/data/refs/<model>/`:
   - `backbone_c3.pt`, `backbone_c4.pt`, `backbone_c5.pt`
   - `neck_p3.pt`, `neck_p4.pt`, `neck_p5.pt`
   - `head_p3.pt`, `head_p4.pt`, `head_p5.pt`
   - `meta.json` with shapes, dtype, weights path, and image size
-- Reports: JSON summaries saved to `lean_yolo/tests/reports/<model>-<timestamp>.json`.
+- Reports: JSON summaries saved to `leanyolo/tests/reports/<model>-<timestamp>.json`.
 
 ## Generating Reference Outputs
 
@@ -43,12 +43,12 @@ Prerequisites:
 
 Command:
 ```
-python -m lean_yolo.tests.fidelity.generate_references --sizes n s m l x --img 320
+python -m leanyolo.tests.fidelity.generate_references --sizes n s m l x --img 320
 ```
 
 Notes:
-- The generator resolves official THU-MIG `*.pt` weights via the lean-yolo weights registry. You may set `LEAN_YOLO_WEIGHTS_DIR` to a local directory containing weight files to avoid network.
-- References are written under `lean_yolo/tests/data/refs/`.
+- The generator resolves official THU-MIG `*.pt` weights via the leanyolo weights registry. You may set `LEANYOLO_WEIGHTS_DIR` to a local directory containing weight files to avoid network.
+- References are written under `leanyolo/tests/data/refs/`.
 
 ## Running Tests
 
@@ -61,18 +61,17 @@ If references are missing, tests are skipped with an instruction to generate the
 ## Updating for New Weights
 
 When official weights are updated:
-1. Update SHA256 in `lean_yolo/models/registry.py` if needed.
+1. Update SHA256 in `leanyolo/models/registry.py` if needed.
 2. Regenerate references:
    ```
-   python -m lean_yolo.tests.fidelity.generate_references --sizes n s m l x --img 320
+   python -m leanyolo.tests.fidelity.generate_references --sizes n s m l x --img 320
    ```
-3. Inspect reports under `lean_yolo/tests/reports/`.
+3. Inspect reports under `leanyolo/tests/reports/`.
 
 ## Compatibility Matrix
 
-This framework ties a lean-yolo commit to specific weight checksums and reference outputs. Maintain a simple matrix in your release notes or CI to track which lean-yolo version was validated against which weight SHA:
+This framework ties a leanyolo commit to specific weight checksums and reference outputs. Maintain a simple matrix in your release notes or CI to track which leanyolo version was validated against which weight SHA:
 
-| lean-yolo commit | yolov10n SHA256 | yolov10s SHA256 | yolov10m SHA256 | yolov10l SHA256 | yolov10x SHA256 |
+| leanyolo commit | yolov10n SHA256 | yolov10s SHA256 | yolov10m SHA256 | yolov10l SHA256 | yolov10x SHA256 |
 |------------------|------------------|------------------|------------------|------------------|------------------|
 | <git-sha>        | <sha>            | <sha>            | <sha>            | <sha>            | <sha>            |
-

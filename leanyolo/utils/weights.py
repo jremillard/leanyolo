@@ -24,8 +24,8 @@ class WeightsEntry:
     def _default_cache_dir(self) -> str:
         # Prefer explicit env var; otherwise cache in user dir
         return os.environ.get(
-            "LEAN_YOLO_CACHE_DIR",
-            os.path.join(os.path.expanduser("~"), ".cache", "lean_yolo"),
+            "LEANYOLO_CACHE_DIR",
+            os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"),
         )
 
     def _target_filename(self) -> str:
@@ -75,7 +75,7 @@ class WeightsEntry:
 
         Order of resolution:
         1) Explicit local_path
-        2) LEAN_YOLO_WEIGHTS_DIR/<filename>
+        2) LEANYOLO_WEIGHTS_DIR/<filename>
         3) cache_dir (or default cache) with optional download from URL
         """
 
@@ -84,7 +84,7 @@ class WeightsEntry:
             return self._load_from_file(local_path, map_location)
 
         # 2) Repository-level or user-provided weights dir
-        env_dir = os.environ.get("LEAN_YOLO_WEIGHTS_DIR")
+        env_dir = os.environ.get("LEANYOLO_WEIGHTS_DIR")
         filename = self._target_filename()
         if env_dir:
             candidate = os.path.join(env_dir, filename)
@@ -112,7 +112,7 @@ class WeightsEntry:
         if not self.url:
             raise FileNotFoundError(
                 f"Weights not found locally ('{cache_path}') and no URL provided. "
-                "Place the file in LEAN_YOLO_WEIGHTS_DIR or pass local_path."
+                "Place the file in LEANYOLO_WEIGHTS_DIR or pass local_path."
             )
 
         self._download_to(self.url, cache_path, progress=progress)

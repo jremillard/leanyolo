@@ -1,6 +1,6 @@
-# leanYOLO
+# leanyolo
 
-This project's (leanYOLO) goal is to provide PyTorch implementations of YOLOs that are easy to integrate and easy to understand.
+This project's (leanyolo) goal is to provide PyTorch implementations of YOLOs that are easy to integrate and easy to understand.
 
 ## Status
 - Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 Build a model using PyTorch-style API with model registry pattern:
 ```python
 import torch
-from lean_yolo.models import get_model, get_model_weights, list_models
+from leanyolo.models import get_model, get_model_weights, list_models
 
 # List available models (similar to torchvision.models)
 all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
@@ -70,7 +70,7 @@ with torch.no_grad():
 Weight loading notes:
 - Official sources only: downloads use the YOLOv10 official releases from `THU-MIG/yolov10` (e.g., v1.1 assets like `yolov10s.pt`). Ultralytics weights are not used here.
 - Offline options:
-  - Set `LEAN_YOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
+  - Set `LEANYOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
   - Pass a local file path to `get_state_dict(local_path=...)`.
 - If weights cannot be found, the model initializes randomly and a warning is emitted.
 
@@ -118,7 +118,7 @@ Supported models: `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `y
 
 COCO mAP@0.5:0.95 comparison on val2017:
 
-| Model    | Official mAP | LeanYOLO mAP | Difference |
+| Model    | Official mAP | leanyolo mAP | Difference |
 |----------|--------------|--------------|------------|
 | yolov10n | 0.38480      | 0.38115      | 0.00365    |
 | yolov10s | 0.45866      | 0.45344      | 0.00522    |

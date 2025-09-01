@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from lean_yolo.data.coco import ensure_coco_val, list_images
+from leanyolo.data.coco import ensure_coco_val, list_images
 
 
 def _filter_annotations(src_ann: Path, keep_image_ids: List[int]) -> Dict:
@@ -96,4 +96,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

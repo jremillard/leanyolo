@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from lean_yolo.engine.eval import validate_coco
+from leanyolo.engine.eval import validate_coco
 
 
 def _make_synthetic_coco(tmp_path: Path, n: int = 2):

@@ -1,4 +1,4 @@
-# Lean YOLO Development Guide
+# leanyolo Development Guide
 
 ## Project Overview
 
@@ -28,10 +28,10 @@ Note: Pretrained weights come from the official THU-MIG/yolov10 releases. This p
 
 Planned layout (WIP — not yet present in the repo):
 ```
-lean-yolo/
+leanyolo/
   README.md
   LICENSE
-  lean_yolo/
+  leanyolo/
     __init__.py
     models/yolov10/{backbone.py, neck.py, head.py, model.py}
     data/{dataset.py, transforms.py, collate.py}
@@ -71,10 +71,10 @@ Run all checks inside this repo’s virtual environment where PyTorch and test d
   - `./.venv/bin/python -c "import torch, torchvision; print(torch.__version__, bool(torch.cuda.is_available()))"`
 - Unit tests: `./.venv/bin/pytest -q` or `./.venv/bin/pytest -q -m "not fidelity"`; ensure all pass.
 - Fidelity tests: `./.venv/bin/pytest -q -m fidelity` with references present. Ensure official weights are available offline:
-  - Set `LEAN_YOLO_WEIGHTS_DIR` to a directory containing `yolov10{n,s,m,b,l,x}.pt`, or
-  - Ensure `LEAN_YOLO_CACHE_DIR` is writeable and allow a one-time download of official weights.
+- Set `LEANYOLO_WEIGHTS_DIR` to a directory containing `yolov10{n,s,m,b,l,x}.pt`, or
+- Ensure `LEANYOLO_CACHE_DIR` is writeable and allow a one-time download of official weights.
 - Weight loading: verify `get_model(name, weights="DEFAULT")` works for all variants without errors; review missing/unexpected key warnings.
-- API compatibility: confirm `lean_yolo.models.get_model`, detection head outputs, and CLI entrypoints behave as documented; e.g., run `test_eval_synthetic` and other API-focused tests.
+- API compatibility: confirm `leanyolo.models.get_model`, detection head outputs, and CLI entrypoints behave as documented; e.g., run `test_eval_synthetic` and other API-focused tests.
 
 Document any intentional behavior changes and update README/examples accordingly.
 
@@ -91,8 +91,8 @@ Always run tests using the virtualenv binaries to avoid picking up the system Py
 - Fidelity-only: `./.venv/bin/pytest -q -m fidelity`
 
 Requirements for fidelity tests:
-- Reference tensors present under `lean_yolo/tests/data/refs/<model>/` (see `lean_yolo/tests/fidelity/README.md`).
-- Official weights available offline via `LEAN_YOLO_WEIGHTS_DIR` or writable cache via `LEAN_YOLO_CACHE_DIR`.
+- Reference tensors present under `leanyolo/tests/data/refs/<model>/` (see `leanyolo/tests/fidelity/README.md`).
+- Official weights available offline via `LEANYOLO_WEIGHTS_DIR` or writable cache via `LEANYOLO_CACHE_DIR`.
 - The `yolov10-official/` repo is present as a sibling folder; it is imported as source for weight loading utilities.
 
 Tips:
@@ -212,7 +212,7 @@ python val.py --weights yolov10s.pt --img 640 --device cpu --batch 1
 python detect.py --weights yolov10s.pt --source path/to/images --img 640 --device cpu
 ```
 
-6) Save intermediate tensors or end-to-end predictions as needed for parity tests in this repo’s `lean_yolo/tests` workflow. Use consistent image sizes and preprocessing.
+6) Save intermediate tensors or end-to-end predictions as needed for parity tests in this repo’s `leanyolo/tests` workflow. Use consistent image sizes and preprocessing.
 
 Tips
 - Prefer CPU for parity snapshots to avoid minor CUDA nondeterminism for unit tests.

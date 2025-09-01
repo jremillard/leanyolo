@@ -5,8 +5,8 @@ from __future__ import annotations
 
 This script:
 - Ensures dog.jpg exists (downloads if missing)
-- Runs lean YOLO inference
-- Draws detections using lean_yolo.utils.viz.draw_detections
+- Runs leanyolo inference
+- Draws detections using leanyolo.utils.viz.draw_detections
 - Saves visualization as dog_viz.jpg in the repo root
 - Removes any other dog_* files, keeping only dog.jpg and dog_viz.jpg
 
@@ -26,11 +26,11 @@ from pathlib import Path
 import cv2
 import torch
 
-from lean_yolo.models import get_model
-from lean_yolo.utils.letterbox import letterbox
-from lean_yolo.utils.postprocess import decode_predictions
-from lean_yolo.utils.box_ops import unletterbox_coords
-from lean_yolo.utils.viz import draw_detections
+from leanyolo.models import get_model
+from leanyolo.utils.letterbox import letterbox
+from leanyolo.utils.postprocess import decode_predictions
+from leanyolo.utils.box_ops import unletterbox_coords
+from leanyolo.utils.viz import draw_detections
 
 
 DOG_URL = "https://github.com/pjreddie/darknet/raw/master/data/dog.jpg"

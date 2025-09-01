@@ -4,7 +4,7 @@ from __future__ import annotations
 """Compare lean YOLOv10 COCO mAP against the official repo's reported value.
 
 This script reads the target mAP50-95 from yolov10-official/logs/<model>.csv and
-then runs lean-yolo's COCO evaluation to verify parity within a tolerance.
+then runs leanyolo's COCO evaluation to verify parity within a tolerance.
 
 Usage
   PYTHONPATH=yolov10-official \
@@ -26,7 +26,7 @@ import csv
 import os
 from pathlib import Path
 
-from lean_yolo.engine.eval import validate_coco
+from leanyolo.engine.eval import validate_coco
 
 
 def parse_args():

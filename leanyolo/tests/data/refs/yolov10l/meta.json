@@ -64,5 +64,5 @@
       10
     ]
   },
-  "weights_path": "/home/jason/.cache/lean_yolo/yolov10l.pt"
+  "weights_path": "/home/jason/.cache/leanyolo/yolov10l.pt"
 }

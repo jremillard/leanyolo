@@ -1,6 +1,6 @@
 import torch
 
-from lean_yolo.utils.postprocess import decode_predictions
+from leanyolo.utils.postprocess import decode_predictions
 
 
 def test_decode_predictions_basic():
@@ -23,4 +23,3 @@ def test_decode_predictions_basic():
     assert d.size(0) >= 1
     # Top-left cell should decode to within image bounds
     assert (d[:, :4] >= 0).all() and (d[:, :4] <= 64).all()
-

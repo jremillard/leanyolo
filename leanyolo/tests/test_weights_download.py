@@ -5,7 +5,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 import torch
 
-from lean_yolo.utils.weights import WeightsEntry
+from leanyolo.utils.weights import WeightsEntry
 
 
 def _sha256_of_file(path: str):
@@ -71,7 +71,7 @@ def test_uses_env_dir_if_present(tmp_path, monkeypatch):
     env_path = env_dir / "yolov10s.pt"
     torch.save(sd, env_path)
 
-    monkeypatch.setenv("LEAN_YOLO_WEIGHTS_DIR", str(env_dir))
+    monkeypatch.setenv("LEANYOLO_WEIGHTS_DIR", str(env_dir))
 
     entry = WeightsEntry(name="yolov10s", url=None, filename="yolov10s.pt")
     out = entry.get_state_dict()
@@ -104,4 +104,3 @@ def test_redownload_on_hash_mismatch(tmp_path):
         assert torch.equal(out["p"], sd["p"])
     finally:
         server.stop()
-

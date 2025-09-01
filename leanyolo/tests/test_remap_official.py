@@ -2,9 +2,10 @@ import os
 import sys
 
 import torch
+import pytest
 
-from lean_yolo.models import get_model
-from lean_yolo.utils.remap import remap_official_yolov10_to_lean
+from leanyolo.models import get_model
+from leanyolo.utils.remap import remap_official_yolov10_to_lean
 
 
 def _ensure_official_on_path():
@@ -20,9 +21,10 @@ def _load_official_state_dict(weights_path: str) -> dict:
     return torch.load(weights_path, map_location="cpu", weights_only=False)
 
 
+@pytest.mark.fidelity
 def test_remap_covers_majority_of_params(tmp_path):
     # Download official weights to temp cache if not present
-    from lean_yolo.models.registry import _YOLOv10Weights
+    from leanyolo.models.registry import _YOLOv10Weights
     entry = _YOLOv10Weights().get("yolov10s", "DEFAULT")
     # Download manually and load with weights_only=False due to PyTorch 2.6+ changes
     import urllib.request, os
@@ -48,8 +50,9 @@ def test_remap_covers_majority_of_params(tmp_path):
     assert coverage > 0.30, f"Remap coverage too low: {coverage:.2%}"
 
 
+@pytest.mark.fidelity
 def test_first_conv_maps_identically(tmp_path):
-    from lean_yolo.models.registry import _YOLOv10Weights
+    from leanyolo.models.registry import _YOLOv10Weights
 
     entry = _YOLOv10Weights().get("yolov10s", "DEFAULT")
     import urllib.request, os

@@ -1,6 +1,8 @@
 import torch
+import pytest
 
 
+@pytest.mark.fidelity
 def test_neck_feature_shapes_match_official():
     import sys
     sys.path.insert(0, 'yolov10-official')
@@ -20,7 +22,7 @@ def test_neck_feature_shapes_match_official():
     for h in hooks:
         h.remove()
 
-    from lean_yolo.models import get_model
+    from leanyolo.models import get_model
     m = get_model('yolov10s', weights=None).eval()
     with torch.no_grad():
         c3, c4, c5 = m.backbone(x)
@@ -29,4 +31,3 @@ def test_neck_feature_shapes_match_official():
     assert p3.shape == feats[16].shape
     assert p4.shape == feats[19].shape
     assert p5.shape == feats[22].shape
-

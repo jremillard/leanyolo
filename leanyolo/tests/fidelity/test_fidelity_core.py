@@ -7,8 +7,8 @@ from typing import Dict, List, Tuple
 import pytest
 import torch
 
-from lean_yolo.models import get_model
-from lean_yolo.utils.remap import remap_official_yolov10_to_lean, extract_state_dict
+from leanyolo.models import get_model
+from leanyolo.utils.remap import remap_official_yolov10_to_lean, extract_state_dict
 from .common import (
     ensure_dirs,
     load_inputs,
@@ -39,7 +39,7 @@ def _maybe_skip_if_missing_refs(model_name: str) -> None:
     if missing:
         pytest.skip(
             f"Missing reference outputs for '{model_name}' in '{d}'. "
-            "Run: python -m lean_yolo.tests.fidelity.generate_references --sizes "
+            "Run: python -m leanyolo.tests.fidelity.generate_references --sizes "
             f"{model_name[-1]} --img 320"
         )
 
@@ -84,10 +84,10 @@ def run_fidelity_for_variant(model_name: str) -> None:
     import ultralytics.nn.tasks as tasks  # type: ignore
     from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
     # Resolve weight file path using our registry metadata (no torch.load)
-    from lean_yolo.models import get_model_weights
+    from leanyolo.models import get_model_weights
 
     entry = get_model_weights(model_name)().get(model_name, "DEFAULT")
-    wdir = os.environ.get("LEAN_YOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "lean_yolo"))
+    wdir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
     wpath = os.path.join(wdir, entry.filename or f"{model_name}.pt")
     if not os.path.exists(wpath):
         os.makedirs(wdir, exist_ok=True)

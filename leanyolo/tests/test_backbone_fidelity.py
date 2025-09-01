@@ -1,6 +1,8 @@
 import torch
+import pytest
 
 
+@pytest.mark.fidelity
 def test_backbone_feature_shapes_match_official():
     # Import official model
     import sys
@@ -25,7 +27,7 @@ def test_backbone_feature_shapes_match_official():
         h.remove()
 
     # Our backbone
-    from lean_yolo.models import get_model
+    from leanyolo.models import get_model
     m = get_model('yolov10s', weights=None)
     m.eval()
 
@@ -36,4 +38,3 @@ def test_backbone_feature_shapes_match_official():
     assert c3.shape == feats[4].shape
     assert c4.shape == feats[6].shape
     assert c5.shape == feats[10].shape
-

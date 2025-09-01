@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import argparse
 
-from lean_yolo.engine.infer import infer_paths
+from leanyolo.engine.infer import infer_paths
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="Lean YOLOv10 inference")
+    ap = argparse.ArgumentParser(description="leanyolo YOLOv10 inference")
     ap.add_argument("--source", required=True, help="Image path or directory")
     ap.add_argument("--model", default="yolov10s", help="Model name")
     ap.add_argument("--weights", default="DEFAULT", help="Weights key or None")
@@ -35,4 +35,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

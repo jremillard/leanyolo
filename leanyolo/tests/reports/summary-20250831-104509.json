@@ -1,0 +1,20 @@
+{
+  "yolov10b": {
+    "pass": true
+  },
+  "yolov10l": {
+    "pass": true
+  },
+  "yolov10m": {
+    "pass": true
+  },
+  "yolov10n": {
+    "pass": true
+  },
+  "yolov10s": {
+    "pass": true
+  },
+  "yolov10x": {
+    "pass": true
+  }
+}

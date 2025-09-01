@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import argparse
 
-from lean_yolo.data.coco import ensure_coco_val
-from lean_yolo.engine.eval import validate_coco
+from leanyolo.data.coco import ensure_coco_val
+from leanyolo.engine.eval import validate_coco
 
 
 def parse_args():
@@ -42,4 +42,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

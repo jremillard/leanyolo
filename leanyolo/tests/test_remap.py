@@ -1,6 +1,6 @@
 import torch
 
-from lean_yolo.utils.remap import adapt_state_dict_for_lean
+from leanyolo.utils.remap import adapt_state_dict_for_lean
 
 
 def test_adapt_state_dict_strips_wrappers_and_prefixes():
