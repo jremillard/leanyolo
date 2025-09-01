@@ -1,6 +1,6 @@
 # leanYOLO
 
-This project (leanYOLO) is a PyTorch-native implementation of YOLO focused specifically on only current and released YOLOv10. 
+This project (leanYOLO) goal is to provide PyTorch implementations of YOLOs that is easy to integrate, easy to understand.
 
 ## Status
 - Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
@@ -10,6 +10,12 @@ This project (leanYOLO) is a PyTorch-native implementation of YOLO focused speci
 - Object detection only: this project focuses solely on detection. Segmentation, pose, and OBB are out of scope.
 - Official weights: load checkpoints for sizes `n`, `s`, `m`, `b`, `l`, `x`.
 
+## YOLO History
+
+YOLO (You Only Look Once) is a real-time object deep learning detection algorithm in computer vision that predicts 
+bounding boxes and class probabilities directly from full images in a single pass.
+
+YOLO's focus is on speed, accuracy, and efficiency for object detection tasks, often used in applications running on edge devices or that require high speed.
 
 ## Getting Started
 
@@ -21,13 +27,10 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install PyTorch (CUDA build by default):
+Install PyTorch with CUDA in the venv
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
-Notes
-- This installs CUDA-enabled wheels (cu12x). They run on CPU too; GPU is used if available.
-- If you explicitly want CPU-only wheels, use the CPU index instead.
 
 Install project dependencies:
 ```
@@ -106,7 +109,7 @@ YOLO text format is not supported.
 
 ## YOLOv10 Compatibility
 
-Supported sizes : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
+Supported models : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
 
  Weight loading
 - Exact loading of all official THU-MIG release weights with the lean implementation. The official repository is not imported at runtime.
@@ -126,25 +129,6 @@ COCO mAP@0.5:0.95 comparison on val2017:
 
 mAP@0.5:0.95 is the mean Average Precision (mAP) evaluated at Intersection over Union (IoU) thresholds ranging from 0.5 to 0.95 in steps of 0.05. This metric assesses object detection performance by averaging precision across multiple recall levels and IoU thresholds, providing a comprehensive measure of accuracy for COCO dataset evaluations.
 
-## Roadmap (YOLOv10-first)
-- Implement YOLOv10 modules and forward pass
-- Create unit tests for each module (backbone, neck, head)
-- Generate reference outputs from official repo (using CPU for reproducibility)
-- Validate module outputs match official implementation with test fixtures
-- Load official weights for n/s/m/b/l/x (verify parameter count parity)
-- Complete end-to-end output verification against official implementation
-- Inference pipeline and visualizations
-- Validation metrics (COCO mAP) and val CLI
-- Optional training loop (reproduce baseline)
-- Export (ONNX/TorchScript) and quick perf checks
-
-
-## YOLO History
-
-YOLO (You Only Look Once) is a real-time object deep learning detection algorithm in computer vision that predicts 
-bounding boxes and class probabilities directly from full images in a single pass.
-
-YOLO's focus is on speed, accuracy, and efficiency for object detection tasks, often used in applications running on edge devices or that require high speed.
 
 ## Ultralytics
 
@@ -160,17 +144,17 @@ Based on the descriptions above, the original YOLO papers are important for comp
 | YOLOv2 | 2016 | Darknet | [YOLO9000: Better, Faster, Stronger](https://arxiv.org/abs/1612.08242) | [Repository](https://github.com/pjreddie/darknet) |
 | YOLOv3 | 2018 | Darknet | [YOLOv3: An Incremental Improvement](https://arxiv.org/abs/1804.02767) | [Repository](https://github.com/pjreddie/darknet) |
 | YOLOv4 | 2020 | Darknet | [YOLOv4: Optimal Speed and Accuracy of Object Detection](https://arxiv.org/abs/2004.10934) | [Repository](https://github.com/AlexeyAB/darknet) |
-| YOLOv5 | 2020 | PyTorch | [YOLOv5 🚀 in PyTorch > ONNX > CoreML > TFLite](https://github.com/ultralytics/yolov5) | [Repository](https://github.com/ultralytics/yolov5) |
+| YOLOv5 | 2020 | PyTorch | [Ultralytics YOLOv5 Documentation](https://docs.ultralytics.com/models/yolov5/) | [Repository](https://github.com/ultralytics/yolov5) |
 | PP-YOLO | 2020 | PaddlePaddle | [PP-YOLO: An Effective and Efficient Implementation of Object Detector](https://arxiv.org/abs/2007.12099) | [Repository](https://github.com/PaddlePaddle/PaddleDetection) |
-| YOLOv7 | 2022 | PyTorch | [YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors](https://arxiv.org/abs/2207.02696) | [Repository](https://github.com/WongKinYiu/yolov7) |
 | YOLOv6 | 2022 | PyTorch | [YOLOv6: A Single-Stage Object Detection Framework for Industrial Applications](https://arxiv.org/abs/2209.02976) | [Repository](https://github.com/meituan/YOLOv6) |
+| YOLOv7 | 2022 | PyTorch | [YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors](https://arxiv.org/abs/2207.02696) | [Repository](https://github.com/WongKinYiu/yolov7) |
 | DAMO-YOLO | 2022 | PyTorch | [DAMO-YOLO: A Report on Real-Time Object Detection Design](https://arxiv.org/abs/2211.15444) | [Repository](https://github.com/tinyvision/DAMO-YOLO) |
 | YOLOv8 | 2023 | PyTorch | [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/models/yolov8/) | [Repository](https://github.com/ultralytics/ultralytics) |
 | YOLO-NAS | 2023 | PyTorch | Deci YOLO-NAS: Neural Architecture Search for Object Detection | [Repository](https://github.com/Deci-AI/super-gradients) |
 | YOLO-World | 2024 | PyTorch | [YOLO-World: Real-Time Open-Vocabulary Object Detection](https://arxiv.org/abs/2401.17270) | [Repository](https://github.com/AILab-CVC/YOLO-World) |
 | YOLOv9 | 2024 | PyTorch | [YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information](https://arxiv.org/abs/2402.13616) | [Repository](https://github.com/WongKinYiu/yolov9) |
 | YOLOv10 | 2024 | PyTorch | [YOLOv10: Real-Time End-to-End Object Detection](https://arxiv.org/abs/2405.14458) | [Repository](https://github.com/THU-MIG/yolov10) |
-| YOLOv11 | 2024 | PyTorch | Ultralytics YOLOv11 Docs | [Repository](https://github.com/ultralytics/ultralytics) |
+| YOLOv11 | 2024 | PyTorch | [Ultralytics YOLOv11 Documentation](https://docs.ultralytics.com/models/yolov11/) | [Repository](https://github.com/ultralytics/ultralytics) |
 | YOLOv12 | 2025 | PyTorch | [YOLOv12: Attention-Centric Real-Time Object Detectors](https://arxiv.org/abs/2502.12524) | [Repository](https://github.com/ultralytics/ultralytics) |
 
 ## License

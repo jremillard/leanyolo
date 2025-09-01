@@ -6,7 +6,7 @@ Clean, minimal PyTorch implementation focused on YOLOv10. The goal is a faithful
 
 Status: this repository currently contains documentation and planning. Code scaffolding (modules/CLI) is in progress.
 
-Note: For a fuller overview, usage examples (Python API and CLI), and the latest details, also read `README.md`.
+Note: For a fuller overview, usage examples (Python API and CLI), and the latest details, also read `README.md` and `todo.md`.
 
 Key capabilities
 - YOLOv10-only: backbone, neck, detection head
