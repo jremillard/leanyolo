@@ -48,7 +48,13 @@ def validate_coco(
     cat_ids = load_coco_categories(ann_json)
 
     cn = coco80_class_names()
-    model = get_model(model_name, weights=weights, class_names=cn)
+    model = get_model(
+        model_name,
+        weights=weights,
+        class_names=cn,
+        input_norm_subtract=[0.0, 0.0, 0.0],
+        input_norm_divide=[255.0, 255.0, 255.0],
+    )
     model.to(device_t).eval()
 
     results = []
@@ -56,7 +62,7 @@ def validate_coco(
         img = cv2.cvtColor(cv2.imread(str(p), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         orig_shape = img.shape[:2]
         lb_img, gain, pad = letterbox(img, new_shape=imgsz)
-        x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().unsqueeze(0)
 
         preds = model(x)
         dets = decode_predictions(preds, num_classes=len(cn), strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))[0][0]

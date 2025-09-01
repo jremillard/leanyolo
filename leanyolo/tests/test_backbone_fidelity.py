@@ -29,7 +29,13 @@ def test_backbone_feature_shapes_match_official():
     # Our backbone
     from leanyolo.models import get_model
     from leanyolo.data.coco import coco80_class_names
-    m = get_model('yolov10s', weights=None, class_names=coco80_class_names())
+    m = get_model(
+        'yolov10s',
+        weights=None,
+        class_names=coco80_class_names(),
+        input_norm_subtract=[0.0],
+        input_norm_divide=[1.0],
+    )
     m.eval()
 
     with torch.no_grad():

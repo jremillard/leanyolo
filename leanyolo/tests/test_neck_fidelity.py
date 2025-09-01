@@ -24,7 +24,13 @@ def test_neck_feature_shapes_match_official():
 
     from leanyolo.models import get_model
     from leanyolo.data.coco import coco80_class_names
-    m = get_model('yolov10s', weights=None, class_names=coco80_class_names()).eval()
+    m = get_model(
+        'yolov10s',
+        weights=None,
+        class_names=coco80_class_names(),
+        input_norm_subtract=[0.0],
+        input_norm_divide=[1.0],
+    ).eval()
     with torch.no_grad():
         c3, c4, c5 = m.backbone(x)
         p3, p4, p5 = m.neck(c3, c4, c5)

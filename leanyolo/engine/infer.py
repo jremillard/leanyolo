@@ -31,7 +31,7 @@ def _resize_square(img: np.ndarray, size: int) -> Tuple[np.ndarray, Tuple[int, i
 
 def _to_tensor(img: np.ndarray, device: torch.device) -> torch.Tensor:
     x = torch.from_numpy(img).to(device)
-    x = x.permute(2, 0, 1).float() / 255.0
+    x = x.permute(2, 0, 1).float()
     return x.unsqueeze(0)
 
 
@@ -48,7 +48,13 @@ def infer_paths(
 ) -> List[Tuple[str, torch.Tensor]]:
     device_t = torch.device(device)
     cn = class_names or coco80_class_names()
-    model = get_model(model_name, weights=weights, class_names=cn)
+    model = get_model(
+        model_name,
+        weights=weights,
+        class_names=cn,
+        input_norm_subtract=[0.0, 0.0, 0.0],
+        input_norm_divide=[255.0, 255.0, 255.0],
+    )
     model.to(device_t).eval()
 
     p = Path(source)

@@ -59,7 +59,13 @@ def main() -> None:
     ensure_dog()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cn = coco80_class_names()
-    model = get_model(MODEL, weights="PRETRAINED_COCO", class_names=cn).to(device).eval()
+    model = get_model(
+        MODEL,
+        weights="PRETRAINED_COCO",
+        class_names=cn,
+        input_norm_subtract=[0.0, 0.0, 0.0],
+        input_norm_divide=[255.0, 255.0, 255.0],
+    ).to(device).eval()
 
     # Load image (RGB path in pipeline)
     bgr = cv2.imread(str(DOG_PATH), cv2.IMREAD_COLOR)
@@ -68,7 +74,7 @@ def main() -> None:
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
     lb_img, gain, pad = letterbox(rgb, new_shape=IMGSZ)
-    x = torch.from_numpy(lb_img).permute(2, 0, 1).float().div(255.0).unsqueeze(0).to(device)
+    x = torch.from_numpy(lb_img).permute(2, 0, 1).float().unsqueeze(0).to(device)
     with torch.no_grad():
         preds = model(x)
     dets = decode_predictions(

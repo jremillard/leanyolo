@@ -73,7 +73,7 @@ Run all checks inside this repo’s virtual environment where PyTorch and test d
 - Fidelity tests: `./.venv/bin/pytest -q -m fidelity` with references present. Ensure official weights are available offline:
 - Set `LEANYOLO_WEIGHTS_DIR` to a directory containing `yolov10{n,s,m,b,l,x}.pt`, or
 - Ensure `LEANYOLO_CACHE_DIR` is writeable and allow a one-time download of official weights.
-- Weight loading: verify `get_model(name, weights="PRETRAINED_COCO", class_names=coco80_class_names())` works for all variants without errors; review missing/unexpected key warnings.
+- Weight loading: verify `get_model(name, weights="PRETRAINED_COCO", class_names=coco80_class_names(), input_norm_subtract=[0,0,0], input_norm_divide=[255,255,255])` works for all variants without errors; review missing/unexpected key warnings.
 - API compatibility: confirm `leanyolo.models.get_model`, detection head outputs, and CLI entrypoints behave as documented; e.g., run `test_eval_synthetic` and other API-focused tests.
 
 Document any intentional behavior changes and update README/examples accordingly.

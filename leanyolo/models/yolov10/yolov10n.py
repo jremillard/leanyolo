@@ -43,9 +43,16 @@ class YOLOv10n(nn.Module):
     REPS = {2: 1, 4: 2, 6: 2, 8: 1, 13: 1, 16: 1, 19: 1, 22: 1}
     TYPES = {"c6": "C2f", "c8": "C2f", "p5_p4": "C2f", "p3_p4": "C2f", "p4_p5": "C2fCIB"}
 
-    def __init__(self, *, class_names: Sequence[str], in_channels: int):
+    def __init__(self, *, class_names: Sequence[str], in_channels: int, input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float]):
         super().__init__()
         self.class_names = list(class_names)
+        import torch
+        sub = torch.tensor(list(input_norm_subtract), dtype=torch.float32).view(1, in_channels, 1, 1)
+        div = torch.tensor(list(input_norm_divide), dtype=torch.float32).view(1, in_channels, 1, 1)
+        self.register_buffer("input_subtract", sub)
+        self.register_buffer("input_divide", div)
+        self._skip_subtract = bool((sub == 0).all().item())
+        self._skip_divide = bool((div == 1).all().item())
         self.backbone = YOLOv10Backbone(
             in_channels=in_channels,
             CH=self.CH,
@@ -74,6 +81,12 @@ class YOLOv10n(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+        if not self._skip_subtract or not self._skip_divide:
+            x = x.float()
+        if not self._skip_subtract:
+            x = x - self.input_subtract
+        if not self._skip_divide:
+            x = x / self.input_divide
         c3, c4, c5 = self.backbone(x)
         p3, p4, p5 = self.neck(c3, c4, c5)
         return self.head((p3, p4, p5))

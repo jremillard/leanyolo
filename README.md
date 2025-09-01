@@ -50,11 +50,25 @@ all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolo
 print(f"Available models: {all_models}")
 
 # Load a model with pretrained weights (weights="PRETRAINED_COCO" loads official weights)
-model = get_model("yolov10s", weights="PRETRAINED_COCO", class_names=coco80_class_names())
+# Use YOLO-standard input normalization: subtract [0,0,0], divide by [255,255,255]
+model = get_model(
+    "yolov10s",
+    weights="PRETRAINED_COCO",
+    class_names=coco80_class_names(),
+    input_norm_subtract=[0, 0, 0],
+    input_norm_divide=[255, 255, 255],
+)
 model.eval()
 
 # Alternative: load with specific configuration
-model = get_model("yolov10s", weights=None, class_names=coco80_class_names())  # No pretrained weights
+# To skip normalization inside the model, use [0,0,0] and [1,1,1]
+model = get_model(
+    "yolov10s",
+    weights=None,
+    class_names=coco80_class_names(),
+    input_norm_subtract=[0, 0, 0],
+    input_norm_divide=[1, 1, 1],
+)  # No pretrained weights
 model.eval()
 
 # Load weights separately if needed
@@ -62,7 +76,7 @@ weights_enum = get_model_weights("yolov10s")  # Returns the resolver type
 weights_entry = weights_enum().get("yolov10s", "PRETRAINED_COCO")  # Pretrained COCO
 model.load_state_dict(weights_entry.get_state_dict(progress=True))
 
-# Forward a dummy tensor
+# Forward a dummy tensor (no need to divide by 255 outside; the model applies normalization)
 x = torch.zeros(1, 3, 640, 640)
 with torch.no_grad():
     out = model(x)

@@ -74,7 +74,13 @@ def run_fidelity_for_variant(model_name: str) -> None:
     x = load_inputs(320)
     # Build lean model and load official weights via official loader to avoid torch.load safety issues
     from leanyolo.data.coco import coco80_class_names
-    m = get_model(model_name, weights=None, class_names=coco80_class_names())
+    m = get_model(
+        model_name,
+        weights=None,
+        class_names=coco80_class_names(),
+        input_norm_subtract=[0.0],
+        input_norm_divide=[1.0],
+    )
     # Use official loader to get checkpoint then remap
     # Add official repo to path
     import sys

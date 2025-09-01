@@ -30,39 +30,39 @@ _VARIANTS = ("yolov10n", "yolov10s", "yolov10m", "yolov10b", "yolov10l", "yolov1
 
 
 @_register_model("yolov10n")
-def _build_yolov10n(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10n(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10n import YOLOv10n
-    return YOLOv10n(class_names=class_names, in_channels=in_channels)
+    return YOLOv10n(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 @_register_model("yolov10s")
-def _build_yolov10s(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10s(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10s import YOLOv10s
-    return YOLOv10s(class_names=class_names, in_channels=in_channels)
+    return YOLOv10s(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 @_register_model("yolov10m")
-def _build_yolov10m(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10m(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10m import YOLOv10m
-    return YOLOv10m(class_names=class_names, in_channels=in_channels)
+    return YOLOv10m(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 @_register_model("yolov10b")
-def _build_yolov10b(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10b(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10b import YOLOv10b
-    return YOLOv10b(class_names=class_names, in_channels=in_channels)
+    return YOLOv10b(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 @_register_model("yolov10l")
-def _build_yolov10l(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10l(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10l import YOLOv10l
-    return YOLOv10l(class_names=class_names, in_channels=in_channels)
+    return YOLOv10l(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 @_register_model("yolov10x")
-def _build_yolov10x(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
+def _build_yolov10x(class_names: Sequence[str], input_norm_subtract: Sequence[float], input_norm_divide: Sequence[float], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10x import YOLOv10x
-    return YOLOv10x(class_names=class_names, in_channels=in_channels)
+    return YOLOv10x(class_names=class_names, in_channels=in_channels, input_norm_subtract=input_norm_subtract, input_norm_divide=input_norm_divide)
 
 
 # Weights registry per model name
@@ -151,6 +151,8 @@ def get_model(
     *,
     weights: Optional[str],
     class_names: Sequence[str],
+    input_norm_subtract: Sequence[float],
+    input_norm_divide: Sequence[float],
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
 
@@ -162,14 +164,27 @@ def get_model(
         name: Model name (e.g., 'yolov10s').
         weights: Weight key (must be 'PRETRAINED_COCO') or None to skip loading.
         class_names: Sequence of class names for the dataset; length defines number of classes.
+        input_norm_subtract: Per-channel mean to subtract. Length must be 3 or 1 (broadcast).
+        input_norm_divide: Per-channel divisor to divide by. Length must be 3 or 1 (broadcast).
 
     Returns:
         torch.nn.Module: Instantiated model.
     """
     if name not in _MODEL_BUILDERS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
+    # Validate normalization vectors (required)
+    if input_norm_subtract is None or input_norm_divide is None:
+        raise ValueError("subtract_mean and divide are required")
+    def _to3(x: Sequence[float]) -> Sequence[float]:
+        if len(x) == 1:
+            return [float(x[0])] * 3
+        if len(x) != 3:
+            raise ValueError("subtract_mean/divide must have length 1 or 3")
+        return [float(v) for v in x]
+    sub3 = _to3(input_norm_subtract)
+    div3 = _to3(input_norm_divide)
     # Models expect 3-channel RGB input; hard-code in_channels=3
-    model = _MODEL_BUILDERS[name](class_names=class_names, in_channels=3)
+    model = _MODEL_BUILDERS[name](class_names=class_names, input_norm_subtract=sub3, input_norm_divide=div3, in_channels=3)
     if weights is not None:
         if weights != "PRETRAINED_COCO":
             raise ValueError("weights must be 'PRETRAINED_COCO' or None")
