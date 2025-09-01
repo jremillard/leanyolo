@@ -59,7 +59,7 @@ def main() -> None:
     ensure_dog()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cn = coco80_class_names()
-    model = get_model(MODEL, weights="DEFAULT", class_names=cn).to(device).eval()
+    model = get_model(MODEL, weights="PRETRAINED_COCO", class_names=cn).to(device).eval()
 
     # Load image (RGB path in pipeline)
     bgr = cv2.imread(str(DOG_PATH), cv2.IMREAD_COLOR)

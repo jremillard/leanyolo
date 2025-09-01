@@ -10,7 +10,7 @@ def parse_args():
     ap = argparse.ArgumentParser(description="leanyolo YOLOv10 inference")
     ap.add_argument("--source", required=True, help="Image path or directory")
     ap.add_argument("--model", default="yolov10s", help="Model name")
-    ap.add_argument("--weights", default="DEFAULT", help="Weights key or None")
+    ap.add_argument("--weights", default="PRETRAINED_COCO", help="Weights key or None")
     ap.add_argument("--imgsz", type=int, default=640, help="Image size")
     ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
     ap.add_argument("--iou", type=float, default=0.45, help="IoU threshold")

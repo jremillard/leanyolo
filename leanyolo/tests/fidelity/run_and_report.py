@@ -26,7 +26,7 @@ def _load_lean_with_official_weights(model_name: str):
     import ultralytics.nn.tasks as tasks  # type: ignore
     from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
 
-    entry = get_model_weights(model_name)().get(model_name, "DEFAULT")
+    entry = get_model_weights(model_name)().get(model_name, "PRETRAINED_COCO")
     wdir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
     wpath = os.path.join(wdir, entry.filename or f"{model_name}.pt")
     if not os.path.exists(wpath):

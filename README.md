@@ -49,8 +49,8 @@ from leanyolo.data.coco import coco80_class_names
 all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
 print(f"Available models: {all_models}")
 
-# Load a model with pretrained weights (weights="DEFAULT" loads official weights)
-model = get_model("yolov10s", weights="DEFAULT", class_names=coco80_class_names())
+# Load a model with pretrained weights (weights="PRETRAINED_COCO" loads official weights)
+model = get_model("yolov10s", weights="PRETRAINED_COCO", class_names=coco80_class_names())
 model.eval()
 
 # Alternative: load with specific configuration
@@ -58,9 +58,9 @@ model = get_model("yolov10s", weights=None, class_names=coco80_class_names())  #
 model.eval()
 
 # Load weights separately if needed
-weights_enum = get_model_weights("yolov10s")  # Returns the weights enum class
-weights = weights_enum.DEFAULT  # Access pretrained weights
-model.load_state_dict(weights.get_state_dict(progress=True))
+weights_enum = get_model_weights("yolov10s")  # Returns the resolver type
+weights_entry = weights_enum().get("yolov10s", "PRETRAINED_COCO")  # Pretrained COCO
+model.load_state_dict(weights_entry.get_state_dict(progress=True))
 
 # Forward a dummy tensor
 x = torch.zeros(1, 3, 640, 640)

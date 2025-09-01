@@ -45,7 +45,7 @@ def _weights_path_for(model_name: str) -> str:
     from leanyolo.models import get_model_weights
 
     weights_enum = get_model_weights(model_name)()
-    entry = weights_enum.get(model_name, "DEFAULT")
+    entry = weights_enum.get(model_name, "PRETRAINED_COCO")
     cache_dir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
     filename = entry.filename or f"{model_name}.pt"
     path = os.path.join(cache_dir, filename)

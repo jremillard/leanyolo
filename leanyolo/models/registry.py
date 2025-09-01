@@ -77,8 +77,8 @@ class _YOLOv10Weights(WeightsResolver):
     # Do NOT use Ultralytics weights here.
     MODEL_TO_WEIGHTS: Dict[str, Dict[str, WeightsEntry]] = {
         "yolov10n": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10n.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10n.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10n.pt",
                 filename="yolov10n.pt",
                 sha256="61b91ffc99b284792dca49bf40216945833cc2a515e1a742954e6e9327cfc19e",
@@ -86,8 +86,8 @@ class _YOLOv10Weights(WeightsResolver):
             )
         },
         "yolov10s": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10s.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10s.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10s.pt",
                 filename="yolov10s.pt",
                 sha256="96af3fc7c7169abcc4867f3e3088b761bb33cf801283c2ec05f9703d63a0ba77",
@@ -95,8 +95,8 @@ class _YOLOv10Weights(WeightsResolver):
             )
         },
         "yolov10m": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10m.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10m.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10m.pt",
                 filename="yolov10m.pt",
                 sha256="ff2c559f11d13701abc4e0345f82851d146ecfe7035efaafcc08475cfd8b5f2d",
@@ -104,8 +104,8 @@ class _YOLOv10Weights(WeightsResolver):
             )
         },
         "yolov10b": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10b.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10b.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10b.pt",
                 filename="yolov10b.pt",
                 sha256="3846434cbf0016b663a1ccd6d843c48468f6852f4feeddcb9f67f9182168c142",
@@ -113,8 +113,8 @@ class _YOLOv10Weights(WeightsResolver):
             )
         },
         "yolov10l": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10l.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10l.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10l.pt",
                 filename="yolov10l.pt",
                 sha256="83769ec3cbc61f18113f612f8bdcf922396628d620682bb72966e9b148004b8b",
@@ -122,8 +122,8 @@ class _YOLOv10Weights(WeightsResolver):
             )
         },
         "yolov10x": {
-            "DEFAULT": WeightsEntry(
-                name="yolov10x.DEFAULT",
+            "PRETRAINED_COCO": WeightsEntry(
+                name="yolov10x.PRETRAINED_COCO",
                 url="https://github.com/THU-MIG/yolov10/releases/download/v1.1/yolov10x.pt",
                 filename="yolov10x.pt",
                 sha256="6e6eae65e6c268c49a25849922e0c75a5c707d626d67170d16a97813b0f8eb79",
@@ -160,7 +160,7 @@ def get_model(
 
     Args:
         name: Model name (e.g., 'yolov10s').
-        weights: Weight key (e.g., 'DEFAULT') or None to skip loading. Must be provided explicitly.
+        weights: Weight key (must be 'PRETRAINED_COCO') or None to skip loading.
         class_names: Sequence of class names for the dataset; length defines number of classes.
 
     Returns:
@@ -170,9 +170,11 @@ def get_model(
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
     # Models expect 3-channel RGB input; hard-code in_channels=3
     model = _MODEL_BUILDERS[name](class_names=class_names, in_channels=3)
-    if weights:
+    if weights is not None:
+        if weights != "PRETRAINED_COCO":
+            raise ValueError("weights must be 'PRETRAINED_COCO' or None")
         try:
-            entry = _YOLOv10Weights().get(name, weights)
+            entry = _YOLOv10Weights().get(name, "PRETRAINED_COCO")
             loaded_obj = entry.get_state_dict(progress=True)
             # Attempt high-fidelity mapping from official to lean architecture
             mapped = remap_official_yolov10_to_lean(loaded_obj, model)
@@ -221,7 +223,7 @@ def get_model_weights(name: str) -> Type[_YOLOv10Weights]:
 
     Usage:
         weights_enum = get_model_weights('yolov10s')
-        weights = weights_enum().get('yolov10s', 'DEFAULT')
+        weights = weights_enum().get('yolov10s', 'PRETRAINED_COCO')
         model.load_state_dict(weights.get_state_dict())
     """
     if name not in _MODEL_BUILDERS:

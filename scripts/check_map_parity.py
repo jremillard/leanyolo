@@ -66,7 +66,7 @@ def main():
     # Run lean eval with default weights (downloads allowed)
     stats = validate_coco(
         model_name=args.model,
-        weights="DEFAULT",
+        weights="PRETRAINED_COCO",
         data_root=args.data_root,
         imgsz=args.imgsz,
         device=args.device,

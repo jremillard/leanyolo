@@ -23,7 +23,7 @@ from ..data.coco import ensure_coco_val, load_coco_categories, list_images
 def validate_coco(
     *,
     model_name: str = "yolov10s",
-    weights: str | None = "DEFAULT",
+    weights: str | None = "PRETRAINED_COCO",
     data_root: str = "data/coco",
     imgsz: int = 640,
     conf: float = 0.001,

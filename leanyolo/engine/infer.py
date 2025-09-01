@@ -38,7 +38,7 @@ def _to_tensor(img: np.ndarray, device: torch.device) -> torch.Tensor:
 def infer_paths(
     source: str,
     model_name: str = "yolov10s",
-    weights: str | None = "DEFAULT",
+    weights: str | None = "PRETRAINED_COCO",
     imgsz: int = 640,
     conf: float = 0.25,
     iou: float = 0.45,

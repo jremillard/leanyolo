@@ -26,7 +26,7 @@ def _load_official_state_dict(weights_path: str) -> dict:
 def test_remap_covers_majority_of_params(tmp_path):
     # Download official weights to temp cache if not present
     from leanyolo.models.registry import _YOLOv10Weights
-    entry = _YOLOv10Weights().get("yolov10s", "DEFAULT")
+    entry = _YOLOv10Weights().get("yolov10s", "PRETRAINED_COCO")
     # Download manually and load with weights_only=False due to PyTorch 2.6+ changes
     import urllib.request, os
     dst = os.path.join(str(tmp_path), entry.filename)
@@ -55,7 +55,7 @@ def test_remap_covers_majority_of_params(tmp_path):
 def test_first_conv_maps_identically(tmp_path):
     from leanyolo.models.registry import _YOLOv10Weights
 
-    entry = _YOLOv10Weights().get("yolov10s", "DEFAULT")
+    entry = _YOLOv10Weights().get("yolov10s", "PRETRAINED_COCO")
     import urllib.request, os
     dst = os.path.join(str(tmp_path), entry.filename)
     if not os.path.exists(dst):

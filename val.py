@@ -12,7 +12,7 @@ def parse_args():
     ap.add_argument("--data-root", default="data/coco", help="COCO root directory")
     ap.add_argument("--download", action="store_true", help="Download COCO val2017 if missing")
     ap.add_argument("--model", default="yolov10s", help="Model name")
-    ap.add_argument("--weights", default="DEFAULT", help="Weights key or None for random init")
+    ap.add_argument("--weights", default="PRETRAINED_COCO", help="Weights key or None for random init")
     ap.add_argument("--imgsz", type=int, default=640, help="Image size")
     ap.add_argument("--conf", type=float, default=0.001, help="Confidence threshold")
     ap.add_argument("--iou", type=float, default=0.65, help="IoU threshold")
