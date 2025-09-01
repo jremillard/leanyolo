@@ -27,7 +27,7 @@ def _register_model(name: str):
     return deco
 
 
-_VARIANTS = ("yolov10n", "yolov10s", "yolov10m", "yolov10b", "yolov10l", "yolov10x")
+# Note: Variants are discovered from the registry; keep a single source of truth.
 
 
 @_register_model("yolov10n")
