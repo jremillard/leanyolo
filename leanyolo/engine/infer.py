@@ -46,7 +46,7 @@ def infer_paths(
     class_names: List[str] | None = None,
 ) -> List[Tuple[str, torch.Tensor]]:
     device_t = torch.device(device)
-    model = get_model(model_name, weights=weights)
+    model = get_model(model_name, weights=weights, num_classes=80, in_channels=3)
     model.to(device_t).eval()
 
     p = Path(source)

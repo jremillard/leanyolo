@@ -39,7 +39,7 @@ def test_remap_covers_majority_of_params(tmp_path):
     loaded = _load_official_state_dict(dst)
 
     # Build lean model
-    model = get_model("yolov10s", weights=None)
+    model = get_model("yolov10s", weights=None, num_classes=80, in_channels=3)
     dst_sd = model.state_dict()
 
     # Remap
@@ -66,7 +66,7 @@ def test_first_conv_maps_identically(tmp_path):
                 f.write(chunk)
     loaded = _load_official_state_dict(dst)
 
-    model = get_model("yolov10s", weights=None)
+    model = get_model("yolov10s", weights=None, num_classes=80, in_channels=3)
     mapped = remap_official_yolov10_to_lean(loaded, model)
 
     # Our first conv weight key

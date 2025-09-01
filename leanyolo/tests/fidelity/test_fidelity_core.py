@@ -73,7 +73,7 @@ def run_fidelity_for_variant(model_name: str) -> None:
     # Load inputs and model
     x = load_inputs(320)
     # Build lean model and load official weights via official loader to avoid torch.load safety issues
-    m = get_model(model_name, weights=None)
+    m = get_model(model_name, weights=None, num_classes=80, in_channels=3)
     # Use official loader to get checkpoint then remap
     # Add official repo to path
     import sys

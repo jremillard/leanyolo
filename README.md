@@ -49,11 +49,11 @@ all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolo
 print(f"Available models: {all_models}")
 
 # Load a model with pretrained weights (weights="DEFAULT" loads official weights)
-model = get_model("yolov10s", weights="DEFAULT")
+model = get_model("yolov10s", weights="DEFAULT", num_classes=80, in_channels=3)
 model.eval()
 
 # Alternative: load with specific configuration
-model = get_model("yolov10s", num_classes=80, weights=None)  # No pretrained weights
+model = get_model("yolov10s", weights=None, num_classes=80, in_channels=3)  # No pretrained weights
 model.eval()
 
 # Load weights separately if needed

@@ -57,7 +57,7 @@ def ensure_dog(path: Path = DOG_PATH) -> None:
 def main() -> None:
     ensure_dog()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model(MODEL, weights="DEFAULT").to(device).eval()
+    model = get_model(MODEL, weights="DEFAULT", num_classes=80, in_channels=3).to(device).eval()
 
     # Load image (RGB path in pipeline)
     bgr = cv2.imread(str(DOG_PATH), cv2.IMREAD_COLOR)

@@ -28,7 +28,7 @@ def test_backbone_feature_shapes_match_official():
 
     # Our backbone
     from leanyolo.models import get_model
-    m = get_model('yolov10s', weights=None)
+    m = get_model('yolov10s', weights=None, num_classes=80, in_channels=3)
     m.eval()
 
     with torch.no_grad():

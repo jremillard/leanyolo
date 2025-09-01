@@ -149,19 +149,17 @@ def list_models() -> Iterable[str]:
 def get_model(
     name: str,
     *,
-    weights: Optional[str] = None,
-    num_classes: int = 80,
-    in_channels: int = 3,
-    exact: bool = True,
+    weights: Optional[str],
+    num_classes: int,
+    in_channels: int,
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
 
     Args:
         name: Model name (e.g., 'yolov10s').
-        weights: Optional weight key (e.g., 'DEFAULT'). If provided, tries to
-                 load via the weight resolver. See README for offline options.
-        num_classes: Number of classes (default 80 for COCO).
-        in_channels: Input channels (default 3).
+        weights: Weight key (e.g., 'DEFAULT') or None to skip loading. Must be provided explicitly.
+        num_classes: Number of classes; must be provided explicitly (e.g., 80 for COCO).
+        in_channels: Input channels; must be provided explicitly (e.g., 3 for RGB).
 
     Returns:
         torch.nn.Module: Instantiated model.
