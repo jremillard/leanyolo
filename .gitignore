@@ -54,7 +54,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-lean_yolo/tests/reports
+leanyolo/tests/reports
 
 # Translations
 *.mo
