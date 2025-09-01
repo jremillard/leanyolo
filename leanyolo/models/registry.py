@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Model registry and weight resolution for YOLOv10 variants.
+"""Model registry and weight resolution for YOLO variants.
 
 This module provides a simple name→builder registry for models and the public
 APIs to construct models and resolve pretrained weights:
