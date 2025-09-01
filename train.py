@@ -138,8 +138,8 @@ def parse_args() -> argparse.Namespace:
     # Data
     p.add_argument("--train-images", required=True, help="Path to training images directory")
     p.add_argument("--train-ann", required=True, help="Path to training annotations JSON (COCO)")
-    p.add_argument("--val-images", required=True, help="Path to validation images directory")
-    p.add_argument("--val-ann", required=True, help="Path to validation annotations JSON (COCO)")
+    p.add_argument("--val-images", default=None, help="Optional: path to validation images directory (skip eval if unset)")
+    p.add_argument("--val-ann", default=None, help="Optional: path to validation annotations JSON (skip eval if unset)")
     p.add_argument("--imgsz", type=int, default=640, help="Letterbox size")
     # Model
     p.add_argument("--model", default="yolov10n", choices=[
@@ -171,7 +171,8 @@ def main() -> None:
 
     # Dataset & loaders
     train_ds = CocoDetection(args.train_images, args.train_ann, imgsz=args.imgsz, augment=True)
-    val_ds = CocoDetection(args.val_images, args.val_ann, imgsz=args.imgsz, augment=False)
+    has_val = bool(args.val_images) and bool(args.val_ann)
+    val_ds = CocoDetection(args.val_images, args.val_ann, imgsz=args.imgsz, augment=False) if has_val else None
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
@@ -193,7 +194,8 @@ def main() -> None:
     print(f"[train] Device: {device}, model={args.model}, imgsz={args.imgsz}")
     print(f"[train] Weights: {('None' if (args.weights.lower()=='none') else args.weights)}")
     print(f"[train] Classes (nc={len(class_names)}): {class_names}")
-    print(f"[train] Train images: {len(train_ds)}, Val images: {len(val_ds)}, Batches/Epoch: {len(train_loader)}")
+    val_count = len(val_ds) if val_ds is not None else 0
+    print(f"[train] Train images: {len(train_ds)}, Val images: {val_count}, Batches/Epoch: {len(train_loader)}")
 
     model = get_model(
         args.model,
@@ -227,8 +229,12 @@ def main() -> None:
         if args.no_tqdm:
             for i, (x, targets) in enumerate(train_loader, 1):
                 x = x.to(device, non_blocking=True)
+                targets_dev = [
+                    {"boxes": t["boxes"].to(device, non_blocking=True), "labels": t["labels"].to(device, non_blocking=True)}
+                    for t in targets
+                ]
                 raw = model(x)
-                loss_dict = detection_loss_v10(raw, targets, num_classes=len(class_names))
+                loss_dict = detection_loss_v10(raw, targets_dev, num_classes=len(class_names))
                 loss = loss_dict["total"]
                 optim.zero_grad()
                 loss.backward()
@@ -243,8 +249,12 @@ def main() -> None:
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}", dynamic_ncols=True)
             for x, targets in pbar:
                 x = x.to(device, non_blocking=True)
+                targets_dev = [
+                    {"boxes": t["boxes"].to(device, non_blocking=True), "labels": t["labels"].to(device, non_blocking=True)}
+                    for t in targets
+                ]
                 raw = model(x)
-                loss_dict = detection_loss_v10(raw, targets, num_classes=len(class_names))
+                loss_dict = detection_loss_v10(raw, targets_dev, num_classes=len(class_names))
                 loss = loss_dict["total"]
                 optim.zero_grad()
                 loss.backward()
@@ -255,21 +265,24 @@ def main() -> None:
                 pbar.set_postfix({k: f"{running[k]/nb:.4f}" for k in running.keys()})
         sched.step()
 
-        # Full mAP evaluation on val
-        model.eval()
-        with torch.no_grad():
-            stats = evaluate_coco(
-                model,
-                args.val_images,
-                args.val_ann,
-                imgsz=args.imgsz,
-                device=args.device,
-                conf=args.eval_conf,
-                iou=args.eval_iou,
-                progress=args.eval_progress,
-                log_every=20,
-            )
-        print({k: round(v, 5) for k, v in stats.items()})
+        # Full mAP evaluation on val (if provided)
+        if has_val:
+            model.eval()
+            with torch.no_grad():
+                stats = evaluate_coco(
+                    model,
+                    args.val_images,
+                    args.val_ann,
+                    imgsz=args.imgsz,
+                    device=args.device,
+                    conf=args.eval_conf,
+                    iou=args.eval_iou,
+                    progress=args.eval_progress,
+                    log_every=20,
+                )
+            print({k: round(v, 5) for k, v in stats.items()})
+        else:
+            print("[eval] Skipping validation (no --val-images/--val-ann provided)")
 
         # Save checkpoint each epoch
         ckpt = {

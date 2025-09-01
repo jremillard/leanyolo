@@ -102,11 +102,15 @@ class V10Detect(nn.Module):
             y.append(torch.cat((cv2[i](x[i]), cv3[i](x[i])), 1))
         return y
 
-    def forward(self, x: Sequence[torch.Tensor]) -> List[torch.Tensor]:
-        """Return training-style outputs per feature level.
+    def forward(self, x: Sequence[torch.Tensor]):
+        """Return raw outputs.
 
-        Each tensor has shape [B, (4*reg_max + nc), H, W], where the first
-        4*reg_max channels encode box distances as discrete distributions and
-        the remaining `nc` channels are class logits.
+        - Training: return dict with 'one2many' and 'one2one' branches (lists of 3 tensors each).
+        - Eval: return one2many branch only (list of 3 tensors).
         """
+        if self.training:
+            return {
+                "one2many": self.forward_feat(x, self.cv2, self.cv3),
+                "one2one": self.forward_feat(x, self.one2one_cv2, self.one2one_cv3),
+            }
         return self.forward_feat(x, self.cv2, self.cv3)
