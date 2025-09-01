@@ -1,5 +1,33 @@
 from __future__ import annotations
 
+"""Model registry and weight resolution for YOLOv10 variants.
+
+This module provides a simple name→builder registry for models and the public
+APIs to construct models and resolve pretrained weights:
+
+- list_models(): enumerate available model names discovered from the registry
+- get_model(): build a model by name and optionally load weights
+- get_model_weights(): return the weights resolver type for a given model
+
+Weight loading behavior used by get_model:
+- Local path ("/path/to/file.pt"): treated as a plain PyTorch state_dict and
+  loaded strictly (no key remapping or conversion). Keys and shapes must match
+  this library's model exactly; otherwise an error is raised.
+- Official weights ("PRETRAINED_COCO"): resolved via a per‑variant registry
+  (_YOLOv10Weights). Files are stored in a cache directory (default:
+  "~/.cache/leanyolo" or overridden by LEANYOLO_CACHE_DIR). Downloads are
+  verified against known SHA‑256 digests before being used. An optional
+  LEANYOLO_WEIGHTS_DIR allows fully offline loading.
+- Official checkpoints are adapted to the lean architecture using
+  remap_official_yolov10_to_lean with a light fallback via adapt_state_dict_for_lean.
+
+Security and compatibility notes:
+- When possible, torch.load is used with weights_only=True to avoid importing
+  arbitrary Python objects from pickled checkpoints.
+- No hidden conversions are performed for local files; incompatibility results
+  in a clear exception rather than silent remapping.
+"""
+
 from typing import Callable, Dict, Iterable, Optional, Type, Sequence
 import os
 
