@@ -46,7 +46,7 @@ def validate_coco(
     coco = COCO(str(ann_json))
     cat_ids = load_coco_categories(ann_json)
 
-    model = get_model(model_name, weights=weights, num_classes=80, in_channels=3)
+    model = get_model(model_name, weights=weights, num_classes=80)
     model.to(device_t).eval()
 
     results = []

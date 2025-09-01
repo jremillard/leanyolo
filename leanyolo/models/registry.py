@@ -151,22 +151,25 @@ def get_model(
     *,
     weights: Optional[str],
     num_classes: int,
-    in_channels: int,
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
+
+    Input format:
+    - Tensor layout: CHW, shape (N, C, H, W)
+    - Color order: RGB (not BGR). Tip: If loading images with OpenCV (BGR), convert to RGB first
 
     Args:
         name: Model name (e.g., 'yolov10s').
         weights: Weight key (e.g., 'DEFAULT') or None to skip loading. Must be provided explicitly.
         num_classes: Number of classes; must be provided explicitly (e.g., 80 for COCO).
-        in_channels: Input channels; must be provided explicitly (e.g., 3 for RGB).
 
     Returns:
         torch.nn.Module: Instantiated model.
     """
     if name not in _MODEL_BUILDERS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
-    model = _MODEL_BUILDERS[name](num_classes=num_classes, in_channels=in_channels)
+    # Models expect 3-channel RGB input; hard-code in_channels=3
+    model = _MODEL_BUILDERS[name](num_classes=num_classes, in_channels=3)
     if weights:
         try:
             entry = _YOLOv10Weights().get(name, weights)
