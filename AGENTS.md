@@ -7,7 +7,6 @@ leanyolo/
   leanyolo/
     models/yolov10/{backbone.py, neck.py, head.py, model.py}
     data/{dataset.py, transforms.py, collate.py}
-    engine/{train.py, eval.py, infer.py}
     utils/{metrics.py, box_ops.py, losses.py, viz.py}
     tests/{test_*.py, fidelity/}
   train.py  val.py  infer.py  export.py  requirements.txt
@@ -36,10 +35,10 @@ leanyolo/
 - When touching backbone/neck/head/model, add/adjust tests and verify weight loading and a dry forward.
 
 ## Commit & Pull Request Guidelines
-- Small, focused PRs with rationale; update docs when behavior changes.
+- Small, focused checkins with rationale; update docs when behavior changes.
 - Include tests for affected modules and show weight-loading logs (missing/unexpected keys reviewed).
 - Commit style: concise imperative subject; Conventional Commits (feat/fix/docs/refactor/test) recommended.
-- PRs must pass CI, include linked issues, and note any intentional behavior differences.
+- checkin must pass CI and note any intentional behavior differences.
 - Do not commit datasets or weights; keep large binaries out of git.
 
 ## Security & Configuration Tips

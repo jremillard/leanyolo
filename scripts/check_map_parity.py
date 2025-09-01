@@ -26,7 +26,7 @@ import csv
 import os
 from pathlib import Path
 
-from leanyolo.engine.eval import validate_coco
+from val import validate_coco
 
 
 def parse_args():

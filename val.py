@@ -2,9 +2,19 @@
 from __future__ import annotations
 
 import argparse
+import json
+from pathlib import Path
+from typing import Dict
 
-from leanyolo.data.coco import ensure_coco_val
-from leanyolo.engine.eval import validate_coco
+import cv2
+import torch
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
+
+from leanyolo.data.coco import ensure_coco_val, load_coco_categories, list_images, coco80_class_names
+from leanyolo.models import get_model
+from leanyolo.utils.box_ops import unletterbox_coords
+from leanyolo.utils.letterbox import letterbox
 
 
 def parse_args():
@@ -24,6 +34,133 @@ def parse_args():
     ap.add_argument("--save-viz-dir", default=None, help="Optional: directory to save annotated images")
     return ap.parse_args()
 
+
+@torch.no_grad()
+def validate_coco(
+    *,
+    model_name: str = "yolov10s",
+    weights: str | None = "PRETRAINED_COCO",
+    data_root: str = "data/coco",
+    imgsz: int = 640,
+    conf: float = 0.001,
+    iou: float = 0.65,
+    device: str = "cpu",
+    max_images: int | None = None,
+    save_json: str | None = None,
+    images_dir: str | None = None,
+    ann_json: str | None = None,
+    save_viz_dir: str | None = None,
+) -> Dict[str, float]:
+    device_t = torch.device(device)
+    root = Path(data_root)
+    if images_dir is None or ann_json is None:
+        subset_ann = root / "annotations.json"
+        subset_imgs = root / "images"
+        if subset_ann.exists() and subset_imgs.exists():
+            images_dir_p, ann_json_p = subset_imgs, subset_ann
+        else:
+            images_dir_p, ann_json_p = ensure_coco_val(data_root, download=False)
+    else:
+        images_dir_p, ann_json_p = Path(images_dir), Path(ann_json)
+    img_paths = list_images(images_dir_p)
+    if max_images is not None:
+        img_paths = img_paths[:max_images]
+
+    coco = COCO(str(ann_json_p))
+    cat_ids = load_coco_categories(ann_json_p)
+
+    # Determine class names: use COCO-80 by default, or derive from provided ann_json
+    if ann_json_p is not None and Path(ann_json_p).exists():
+        with open(ann_json_p, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        cats = sorted(data.get('categories', []), key=lambda c: c.get('id', 0))
+        cn = [c.get('name', str(i)) for i, c in enumerate(cats)]
+    else:
+        cn = coco80_class_names()
+    model = get_model(
+        model_name,
+        weights=weights,
+        class_names=cn,
+        input_norm_subtract=[0.0, 0.0, 0.0],
+        input_norm_divide=[255.0, 255.0, 255.0],
+    )
+    model.to(device_t).eval()
+    model.post_conf_thresh = conf
+    model.post_iou_thresh = iou
+
+    # Build mapping filename -> image_id for robust id assignment
+    imgs_info = coco.loadImgs(coco.getImgIds())  # type: ignore
+    fname_to_id = {img["file_name"]: int(img["id"]) for img in imgs_info}
+
+    results = []
+    # Prepare viz dir
+    if save_viz_dir:
+        Path(save_viz_dir).mkdir(parents=True, exist_ok=True)
+
+    for p in img_paths:
+        img = cv2.cvtColor(cv2.imread(str(p), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+        orig_shape = img.shape[:2]
+        lb_img, gain, pad = letterbox(img, new_shape=imgsz)
+        x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().unsqueeze(0)
+
+        raw = model(x)
+        dets = model.decode_forward(raw)[0][0]
+        if dets.numel() == 0:
+            continue
+        # Scale boxes back
+        dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
+        # Optional visualization save
+        if save_viz_dir:
+            from leanyolo.utils.viz import draw_detections
+            bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            vis = draw_detections(bgr, dets)
+            cv2.imwrite(str(Path(save_viz_dir) / Path(p).name), vis)
+        # Convert to COCO json
+        # COCO expects [x, y, w, h] with category_id being dataset category IDs
+        image_id = int(fname_to_id.get(Path(p).name, -1))
+        if image_id == -1:
+            # Fallback: try stem lookup without extension
+            stem = Path(p).stem
+            # Try to find first match by stem
+            for fn, iid in fname_to_id.items():
+                if Path(fn).stem == stem:
+                    image_id = int(iid)
+                    break
+            if image_id == -1:
+                continue
+        for x1, y1, x2, y2, score, cls in dets.cpu().numpy():
+            w, h = x2 - x1, y2 - y1
+            cls = int(cls)
+            cat_id = cat_ids[cls] if cls < len(cat_ids) else cat_ids[-1]
+            results.append(
+                {
+                    "image_id": image_id,
+                    "category_id": int(cat_id),
+                    "bbox": [float(x1), float(y1), float(w), float(h)],
+                    "score": float(score),
+                }
+            )
+
+    if not results:
+        return {"mAP50-95": 0.0}
+
+    if save_json:
+        Path(save_json).parent.mkdir(parents=True, exist_ok=True)
+        Path(save_json).write_text(json.dumps(results))
+
+    coco_dt = coco.loadRes(results)
+    coco_eval = COCOeval(coco, coco_dt, iouType="bbox")
+    coco_eval.evaluate()
+    coco_eval.accumulate()
+    coco_eval.summarize()
+
+    # Extract mAP .5:.95
+    stats = {
+        "mAP50-95": float(coco_eval.stats[0]),
+        "mAP50": float(coco_eval.stats[1]),
+        "mAP75": float(coco_eval.stats[2]),
+    }
+    return stats
 
 def main():
     args = parse_args()

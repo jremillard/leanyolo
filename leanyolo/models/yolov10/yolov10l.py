@@ -30,7 +30,7 @@ Output format:
 Note:
 - These YOLOv10x classes (family) are raw model modules. For inference, wrap
   preprocessing (RGB, letterbox, normalization) and postprocessing (decode,
-  NMS, unletterbox). See leanyolo.engine.infer for a reference pipeline.
+  NMS, unletterbox). See infer.py for a reference pipeline.
 """
 
 from typing import List, Sequence
