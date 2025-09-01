@@ -174,9 +174,10 @@ def get_model(
       SHA-256 is computed and compared against the known digest from the registry.
       If the hash does not match, the file is removed and loading fails with a clear
       error to prevent using a corrupted or tampered checkpoint.
-    - You can also provide a direct filesystem path to a checkpoint via the ``weights``
-      argument (instead of ``'PRETRAINED_COCO'``); in that case no download/caching is
-      performed and the file is loaded directly after basic sanity checks.
+    - Local file path: if ``weights`` is a filesystem path to a ``.pt`` file, it is
+      treated as a plain PyTorch ``state_dict`` checkpoint. No key remapping or
+      conversion is attempted. The keys and tensor shapes must strictly match this
+      library's model; otherwise a clear error is raised.
 
     Args:
         name: Model name (e.g., 'yolov10s').
@@ -206,25 +207,49 @@ def get_model(
     # Models expect 3-channel RGB input; hard-code in_channels=3
     model = _MODEL_BUILDERS[name](class_names=class_names, input_norm_subtract=sub3, input_norm_divide=div3, in_channels=3)
     if weights is not None:
-        # Local checkpoint path support
+        # Local checkpoint path support: expect a plain, compatible state_dict.
+        # No remapping or conversion is attempted for local files.
         if isinstance(weights, str) and os.path.isfile(weights):
             try:
-                ckpt = torch.load(weights, map_location="cpu", weights_only=False)
-                if not isinstance(ckpt, dict):
-                    raise ValueError("checkpoint must be a dict")
-                mname = ckpt.get("model_name")
-                cls = ckpt.get("class_names")
-                sd = ckpt.get("state_dict")
-                if mname != name:
-                    raise ValueError(f"Checkpoint model_name '{mname}' does not match requested '{name}'")
-                if not isinstance(cls, (list, tuple)) or list(cls) != list(class_names):
-                    raise ValueError("Checkpoint class_names do not match provided class_names")
-                if not isinstance(sd, dict):
-                    raise ValueError("Checkpoint missing state_dict")
-                model.load_state_dict(sd, strict=True)
+                try:
+                    ckpt = torch.load(weights, map_location="cpu", weights_only=True)  # type: ignore[call-arg]
+                except TypeError:
+                    ckpt = torch.load(weights, map_location="cpu")
+
+                # Determine state_dict without conversion/remapping
+                sd = None
+                if isinstance(ckpt, dict):
+                    # Prefer explicit 'state_dict' key if present
+                    inner = ckpt.get("state_dict") if "state_dict" in ckpt else ckpt
+                    if isinstance(inner, dict):
+                        # Accept only tensor entries (common for plain state_dict saves)
+                        tensors_only = {k: v for k, v in inner.items() if isinstance(v, torch.Tensor)}
+                        if tensors_only:
+                            sd = tensors_only
+                # If still not resolved, and the object looks like a module, try its state_dict directly
+                if sd is None and hasattr(ckpt, "state_dict") and callable(getattr(ckpt, "state_dict")):
+                    try:
+                        candidate = ckpt.state_dict()
+                        if isinstance(candidate, dict) and all(isinstance(v, torch.Tensor) for v in candidate.values()):
+                            sd = candidate
+                    except Exception:
+                        pass
+
+                if sd is None:
+                    raise ValueError("expected a plain state_dict or a dict with 'state_dict'.")
+
+                # Strict load: require exact key and shape match for this library version
+                missing, unexpected = model.load_state_dict(sd, strict=True)
+                # Strict=True returns no missing/unexpected; the call itself raises on mismatch in newer PyTorch.
+                # This line is for forward compatibility if API returns tuples.
+                if missing or unexpected:
+                    raise RuntimeError("state_dict keys mismatch for this model version")
                 return model
             except Exception as e:
-                raise ValueError(f"Failed to load local checkpoint '{weights}': {e}")
+                raise ValueError(
+                    f"Failed to load local weights '{weights}': {e}. "
+                    "Provide a state_dict compatible with this library version."
+                )
         if weights != "PRETRAINED_COCO":
             raise ValueError("weights must be a filename, 'PRETRAINED_COCO', or None")
         try:
