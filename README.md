@@ -1,6 +1,6 @@
-# leanyolo
+# leanYOLO
 
-This project's (leanyolo) goal is to provide PyTorch implementations of YOLOs that are easy to integrate and easy to understand.
+This project (leanYOLO) goal is to provide PyTorch implementations of YOLOs that is easy to integrate, easy to understand.
 
 ## Status
 - Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
@@ -12,7 +12,7 @@ This project's (leanyolo) goal is to provide PyTorch implementations of YOLOs th
 
 ## YOLO History
 
-YOLO (You Only Look Once) is a real-time object detection deep learning algorithm in computer vision that predicts 
+YOLO (You Only Look Once) is a real-time object deep learning detection algorithm in computer vision that predicts 
 bounding boxes and class probabilities directly from full images in a single pass.
 
 YOLO's focus is on speed, accuracy, and efficiency for object detection tasks, often used in applications running on edge devices or that require high speed.
@@ -27,7 +27,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install PyTorch with CUDA in the virtual environment:
+Install PyTorch with CUDA in the venv
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 Build a model using PyTorch-style API with model registry pattern:
 ```python
 import torch
-from leanyolo.models import get_model, get_model_weights, list_models
+from lean_yolo.models import get_model, get_model_weights, list_models
 from leanyolo.data.coco import coco80_class_names
 
 # List available models (similar to torchvision.models)
@@ -89,26 +89,26 @@ with torch.no_grad():
     # x1,y1 = top-left; x2,y2 = bottom-right (pixels in input letterbox space)
 ```
 
-Weight loading notes:
+Weight loading notes
 - Official sources only: downloads use the YOLOv10 official releases from `THU-MIG/yolov10` (e.g., v1.1 assets like `yolov10s.pt`). Ultralytics weights are not used here.
 - Offline options:
-  - Set `LEANYOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
+  - Set `LEAN_YOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
   - Pass a local file path to `get_state_dict(local_path=...)`.
 - If weights cannot be found, the model initializes randomly and a warning is emitted.
 
 
 ## CLI 
 
-CLI entrypoints:
+CLI entrypoints
 - `infer.py`: basic inference with letterbox preprocessing and NMS
 - `val.py`: COCO validation (downloads val2017 on demand)
 
-Notes:
+Notes
 - Training requires COCO JSON annotation format (standard COCO dataset structure).
 - Class names are automatically extracted from the COCO JSON files.
 - For COCO, the standard 80-class list is used.
 
-Preprocessing:
+Preprocessing
 - Inference/validation use letterbox resize with padding (114,114,114) for parity with official preprocessing.
 
 ## Datasets
@@ -131,16 +131,16 @@ YOLO text format is not supported.
 
 ## YOLOv10 Compatibility
 
-Supported models: `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
+Supported models : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
 
- Weight loading:
+ Weight loading
 - Exact loading of all official THU-MIG release weights with the lean implementation. The official repository is not imported at runtime.
 
 ## Validation
 
 COCO mAP@0.5:0.95 comparison on val2017:
 
-| Model    | Official mAP | leanyolo mAP | Difference |
+| Model    | Official mAP | LeanYOLO mAP | Difference |
 |----------|--------------|--------------|------------|
 | yolov10n | 0.38480      | 0.38115      | 0.00365    |
 | yolov10s | 0.45866      | 0.45344      | 0.00522    |
@@ -154,11 +154,11 @@ mAP@0.5:0.95 is the mean Average Precision (mAP) evaluated at Intersection over 
 
 ## Ultralytics
 
-Ultralytics provides user-friendly APIs, pre-trained models, and a large community ecosystem. Ultralytics maintains implementations of YOLOv3 through YOLOv12 in a single repository, preserving the Darknet convention of configuring models with YAML config files even in their PyTorch implementations. While many versions of YOLO are functionally obsolete for most applications, they remain in the Ultralytics repo for historical and research purposes. This backward compatibility approach, while serving R&D needs for exploring new model architectures and conducting comparative studies, makes the official Ultralytics repository more complex and unfamiliar to engineers who primarily work with standard PyTorch patterns and conventions. Also, Ultralytics uses AGPL-3.0 (requiring open-sourcing of derivative works) with commercial licenses available.
+Ultralytics' is providing user-friendly APIs, pre-trained models, and a large community ecosystem. Ultralytics maintains implementations of YOLOv3 through YOLOv12 in a single repository, preserving the Darknet convention of configuring models with YAML config files even in their PyTorch implementations. While many versions of YOLO are functionally obsolete for most applications, they remain in the Ultralytics repo for historical and research purposes. This backward compatibility approach, while serving R&D needs for exploring new model architectures and conducting comparative studies, makes the official Ultralytics repository more complex and unfamiliar to engineers who primarily work with standard PyTorch patterns and conventions. Also Ultralytics use AGPL-3.0 (requiring open-sourcing of derivative works) with commercial licenses available.
 
 ## References
 
-Based on the descriptions above, the original YOLO papers are important for completeness:
+Based on the descriptions above, the original YOLO papers are important for completeness.
 
 | Model | Year | Framework | Paper | Repository |
 |-------|------|-----------|-------|------------|
