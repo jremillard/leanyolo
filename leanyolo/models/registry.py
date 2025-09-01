@@ -161,6 +161,23 @@ def get_model(
     - Tensor layout: CHW, shape (N, C, H, W)
     - Color order: RGB (not BGR). Tip: If loading images with OpenCV (BGR), convert to RGB first
 
+    Pretrained weight resolution, download, and caching:
+    - Pass ``weights='PRETRAINED_COCO'`` to load the official YOLOv10 weights for the
+      given variant. Resolution order is handled by ``WeightsEntry.get_state_dict``:
+        1) If a ``local_path`` is provided (not used here), load directly from it.
+        2) If ``LEANYOLO_WEIGHTS_DIR`` is set, try ``$LEANYOLO_WEIGHTS_DIR/<filename>``.
+        3) Otherwise, use a cache directory and download when missing.
+    - Cache location: by default ``~/.cache/leanyolo`` or the directory specified by
+      ``LEANYOLO_CACHE_DIR``. The expected filename is derived from the weight entry
+      (e.g., ``yolov10s.pt``).
+    - Integrity verification: when a file is found in the cache or downloaded, its
+      SHA-256 is computed and compared against the known digest from the registry.
+      If the hash does not match, the file is removed and loading fails with a clear
+      error to prevent using a corrupted or tampered checkpoint.
+    - You can also provide a direct filesystem path to a checkpoint via the ``weights``
+      argument (instead of ``'PRETRAINED_COCO'``); in that case no download/caching is
+      performed and the file is loaded directly after basic sanity checks.
+
     Args:
         name: Model name (e.g., 'yolov10s').
         weights: Weight key (must be 'PRETRAINED_COCO') or None to skip loading.
