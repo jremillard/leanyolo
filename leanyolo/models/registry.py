@@ -211,39 +211,7 @@ def get_model(
         # No remapping or conversion is attempted for local files.
         if isinstance(weights, str) and os.path.isfile(weights):
             try:
-                try:
-                    ckpt = torch.load(weights, map_location="cpu", weights_only=True)  # type: ignore[call-arg]
-                except TypeError:
-                    ckpt = torch.load(weights, map_location="cpu")
-
-                # Determine state_dict without conversion/remapping
-                sd = None
-                if isinstance(ckpt, dict):
-                    # Prefer explicit 'state_dict' key if present
-                    inner = ckpt.get("state_dict") if "state_dict" in ckpt else ckpt
-                    if isinstance(inner, dict):
-                        # Accept only tensor entries (common for plain state_dict saves)
-                        tensors_only = {k: v for k, v in inner.items() if isinstance(v, torch.Tensor)}
-                        if tensors_only:
-                            sd = tensors_only
-                # If still not resolved, and the object looks like a module, try its state_dict directly
-                if sd is None and hasattr(ckpt, "state_dict") and callable(getattr(ckpt, "state_dict")):
-                    try:
-                        candidate = ckpt.state_dict()
-                        if isinstance(candidate, dict) and all(isinstance(v, torch.Tensor) for v in candidate.values()):
-                            sd = candidate
-                    except Exception:
-                        pass
-
-                if sd is None:
-                    raise ValueError("expected a plain state_dict or a dict with 'state_dict'.")
-
-                # Strict load: require exact key and shape match for this library version
-                missing, unexpected = model.load_state_dict(sd, strict=True)
-                # Strict=True returns no missing/unexpected; the call itself raises on mismatch in newer PyTorch.
-                # This line is for forward compatibility if API returns tuples.
-                if missing or unexpected:
-                    raise RuntimeError("state_dict keys mismatch for this model version")
+                _load_local_pt_into_model(weights, model)
                 return model
             except Exception as e:
                 raise ValueError(
@@ -253,41 +221,7 @@ def get_model(
         if weights != "PRETRAINED_COCO":
             raise ValueError("weights must be a filename, 'PRETRAINED_COCO', or None")
         try:
-            entry = _YOLOv10Weights().get(name, "PRETRAINED_COCO")
-            loaded_obj = entry.get_state_dict(progress=True)
-            # Attempt high-fidelity mapping from official to lean architecture
-            mapped = remap_official_yolov10_to_lean(loaded_obj, model)
-            # Fallback to simple unwrap if mapping yielded nothing
-            state_dict = mapped if mapped else adapt_state_dict_for_lean(loaded_obj)
-            # Load and collect stats
-            missing, unexpected = model.load_state_dict(state_dict, strict=False)
-            try:
-                src_sd = extract_state_dict(loaded_obj)
-                src_total = sum(1 for v in src_sd.values() if isinstance(v, torch.Tensor)) or 1
-                used_src = sum(1 for v in state_dict.values() if isinstance(v, torch.Tensor))
-                dst_total = sum(1 for _ in model.state_dict().keys()) or 1
-                dst_loaded = dst_total - len(missing)
-                pct_src = 100.0 * used_src / src_total
-                pct_dst = 100.0 * dst_loaded / dst_total
-                warnings.warn(
-                    f"Weights loaded: {used_src}/{src_total} from file ({pct_src:.1f}%), "
-                    f"filled model: {dst_loaded}/{dst_total} params ({pct_dst:.1f}%).",
-                    RuntimeWarning,
-                )
-                # Note: No runtime dependency or fallback to the official implementation.
-                # The lean implementation must achieve exact compatibility on its own.
-            except Exception:
-                pass
-            if unexpected:
-                warnings.warn(
-                    f"Unexpected keys when loading weights: {sorted(unexpected)[:10]}...",
-                    RuntimeWarning,
-                )
-            if missing:
-                warnings.warn(
-                    f"Missing keys when loading weights: {sorted(missing)[:10]}...",
-                    RuntimeWarning,
-                )
+            _load_official_pretrained_into_model(name, model)
         except Exception as e:  # pragma: no cover - environment dependent
             warnings.warn(
                 f"Could not load weights '{weights}' for '{name}': {e}. "
@@ -308,3 +242,88 @@ def get_model_weights(name: str) -> Type[_YOLOv10Weights]:
     if name not in _MODEL_BUILDERS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
     return _YOLOv10Weights
+
+
+def _load_local_pt_into_model(path: str, model: nn.Module) -> None:
+    """Strictly load a local .pt file as a plain state_dict into model.
+
+    - Accepts either a dict of tensors (plain state_dict) or a dict with a
+      'state_dict' key. Also supports loading an object with a .state_dict()
+      method, but performs no key remapping or conversion.
+    - Requires exact key and shape match (strict=True) with this library's model.
+    """
+    try:
+        try:
+            ckpt = torch.load(path, map_location="cpu", weights_only=True)  # type: ignore[call-arg]
+        except TypeError:
+            ckpt = torch.load(path, map_location="cpu")
+
+        sd = None
+        if isinstance(ckpt, dict):
+            inner = ckpt.get("state_dict") if "state_dict" in ckpt else ckpt
+            if isinstance(inner, dict):
+                tensors_only = {k: v for k, v in inner.items() if isinstance(v, torch.Tensor)}
+                if tensors_only:
+                    sd = tensors_only
+        if sd is None and hasattr(ckpt, "state_dict") and callable(getattr(ckpt, "state_dict")):
+            candidate = ckpt.state_dict()
+            if isinstance(candidate, dict) and all(isinstance(v, torch.Tensor) for v in candidate.values()):
+                sd = candidate
+
+        if sd is None:
+            raise ValueError("expected a plain state_dict or a dict with 'state_dict'.")
+
+        ret = model.load_state_dict(sd, strict=True)
+        # For forward compatibility if torch returns an object with attributes
+        if ret is not None:
+            missing = getattr(ret, "missing_keys", [])
+            unexpected = getattr(ret, "unexpected_keys", [])
+            if missing or unexpected:
+                raise RuntimeError("state_dict keys mismatch for this model version")
+    except Exception:
+        raise
+
+
+def _load_official_pretrained_into_model(model_name: str, model: nn.Module) -> None:
+    """Resolve, download/cache, and map official weights into the model.
+
+    - Uses the per-variant weights registry to obtain a WeightsEntry.
+    - Downloads into cache if needed (with hash verification in utils.weights).
+    - Converts official checkpoint formats to this repo's lean model via
+      remapping helpers, then loads with strict=False and reports coverage.
+    """
+    entry = _YOLOv10Weights().get(model_name, "PRETRAINED_COCO")
+    loaded_obj = entry.get_state_dict(progress=True)
+    # Attempt high-fidelity mapping from official to lean architecture
+    mapped = remap_official_yolov10_to_lean(loaded_obj, model)
+    # Fallback to simple unwrap if mapping yielded nothing
+    state_dict = mapped if mapped else adapt_state_dict_for_lean(loaded_obj)
+    # Load and collect stats
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    try:
+        src_sd = extract_state_dict(loaded_obj)
+        src_total = sum(1 for v in src_sd.values() if isinstance(v, torch.Tensor)) or 1
+        used_src = sum(1 for v in state_dict.values() if isinstance(v, torch.Tensor))
+        dst_total = sum(1 for _ in model.state_dict().keys()) or 1
+        dst_loaded = dst_total - len(missing)
+        pct_src = 100.0 * used_src / src_total
+        pct_dst = 100.0 * dst_loaded / dst_total
+        warnings.warn(
+            f"Weights loaded: {used_src}/{src_total} from file ({pct_src:.1f}%), "
+            f"filled model: {dst_loaded}/{dst_total} params ({pct_dst:.1f}%).",
+            RuntimeWarning,
+        )
+        # Note: No runtime dependency or fallback to the official implementation.
+        # The lean implementation must achieve exact compatibility on its own.
+    except Exception:
+        pass
+    if unexpected:
+        warnings.warn(
+            f"Unexpected keys when loading weights: {sorted(unexpected)[:10]}...",
+            RuntimeWarning,
+        )
+    if missing:
+        warnings.warn(
+            f"Missing keys when loading weights: {sorted(missing)[:10]}...",
+            RuntimeWarning,
+        )
