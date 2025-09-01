@@ -13,7 +13,6 @@ from pycocotools.cocoeval import COCOeval
 
 from ..models import get_model
 from ..data.coco import coco80_class_names
-from ..utils.postprocess import decode_predictions
 from ..utils.box_ops import unletterbox_coords
 from ..utils.letterbox import letterbox
 from ..data.coco import ensure_coco_val, load_coco_categories, list_images
@@ -56,6 +55,8 @@ def validate_coco(
         input_norm_divide=[255.0, 255.0, 255.0],
     )
     model.to(device_t).eval()
+    model.post_conf_thresh = conf
+    model.post_iou_thresh = iou
 
     results = []
     for p in img_paths:
@@ -64,8 +65,7 @@ def validate_coco(
         lb_img, gain, pad = letterbox(img, new_shape=imgsz)
         x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().unsqueeze(0)
 
-        preds = model(x)
-        dets = decode_predictions(preds, num_classes=len(cn), strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))[0][0]
+        dets = model(x)[0][0]
         if dets.numel() == 0:
             continue
         # Scale boxes back

@@ -29,7 +29,6 @@ import torch
 from leanyolo.models import get_model
 from leanyolo.data.coco import coco80_class_names
 from leanyolo.utils.letterbox import letterbox
-from leanyolo.utils.postprocess import decode_predictions
 from leanyolo.utils.box_ops import unletterbox_coords
 from leanyolo.utils.viz import draw_detections
 
@@ -76,15 +75,9 @@ def main() -> None:
     lb_img, gain, pad = letterbox(rgb, new_shape=IMGSZ)
     x = torch.from_numpy(lb_img).permute(2, 0, 1).float().unsqueeze(0).to(device)
     with torch.no_grad():
-        preds = model(x)
-    dets = decode_predictions(
-        preds,
-        num_classes=len(cn),
-        strides=(8, 16, 32),
-        conf_thresh=CONF,
-        iou_thresh=IOU,
-        img_size=(IMGSZ, IMGSZ),
-    )[0][0]
+        model.post_conf_thresh = CONF
+        model.post_iou_thresh = IOU
+        dets = model(x)[0][0]
     if dets.numel() > 0:
         dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=rgb.shape[:2])
 

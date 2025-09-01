@@ -19,11 +19,13 @@ Input format:
   a convenient default (divisible by 32 for strides 8/16/32 → 80/40/20 grids).
 
 Output format:
-- Returns a list of 3 tensors [P3, P4, P5]
-- Each tensor has shape (N, 4*reg_max + num_classes, H, W)
-- Channels 0..(4*reg_max-1): DFL logits for [l, t, r, b] distances
-- Channels (4*reg_max)..: class logits (unnormalized)
-- Post-processing: use leanyolo.utils.postprocess.decode_predictions and NMS
+- Training mode: returns a list of 3 tensors [P3, P4, P5], each
+  (N, 4*reg_max + num_classes, H, W). Channels 0..(4*reg_max-1) are DFL logits
+  for [l,t,r,b], remaining are class logits.
+- Eval mode: returns decoded detections per image as List[List[Tensor]], where
+  each inner tensor is [N,6] = [x1,y1,x2,y2,score,cls] in pixels of the input
+  (letterboxed) size. Thresholds via attributes: post_conf_thresh (0.25),
+  post_iou_thresh (0.45), post_max_det (300).
 
 Note:
 - These YOLOv10x classes (family) are raw model modules. For inference, wrap
@@ -39,6 +41,7 @@ import torch.nn as nn
 from .backbone import YOLOv10Backbone
 from .neck import YOLOv10Neck
 from .head_v10 import V10Detect
+from .postprocess import decode_v10_predictions
 
 
 class YOLOv10n(nn.Module):
@@ -84,7 +87,7 @@ class YOLOv10n(nn.Module):
             if isinstance(m, nn.Conv2d) and m.out_channels in (4,) and m.bias is not None:
                 nn.init.zeros_(m.bias)
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor):
         if not self._skip_subtract or not self._skip_divide:
             x = x.float()
         if not self._skip_subtract:
@@ -93,4 +96,19 @@ class YOLOv10n(nn.Module):
             x = x / self.input_divide
         c3, c4, c5 = self.backbone(x)
         p3, p4, p5 = self.neck(c3, c4, c5)
-        return self.head((p3, p4, p5))
+        raw = self.head((p3, p4, p5))
+        if self.training:
+            return raw
+        conf = getattr(self, "post_conf_thresh", 0.25)
+        iou = getattr(self, "post_iou_thresh", 0.45)
+        mdet = getattr(self, "post_max_det", 300)
+        ih, iw = int(x.shape[-2]), int(x.shape[-1])
+        return decode_v10_predictions(
+            raw,
+            num_classes=len(self.class_names),
+            strides=(8, 16, 32),
+            conf_thresh=conf,
+            iou_thresh=iou,
+            max_det=mdet,
+            img_size=(ih, iw),
+        )

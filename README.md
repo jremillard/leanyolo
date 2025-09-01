@@ -76,10 +76,16 @@ weights_enum = get_model_weights("yolov10s")  # Returns the resolver type
 weights_entry = weights_enum().get("yolov10s", "PRETRAINED_COCO")  # Pretrained COCO
 model.load_state_dict(weights_entry.get_state_dict(progress=True))
 
-# Forward a dummy tensor (no need to divide by 255 outside; the model applies normalization)
+# Forward a dummy tensor (model applies normalization). In eval mode, YOLOv10
+# models return decoded detections per image: list of [N,6] tensors
+# [x1, y1, x2, y2, score, cls].
 x = torch.zeros(1, 3, 640, 640)
+model.post_conf_thresh = 0.25  # confidence threshold (after sigmoid)
+model.post_iou_thresh = 0.45   # IoU threshold for NMS (higher keeps more overlaps)
 with torch.no_grad():
-    out = model(x)
+    dets_per_img = model(x)  # List[List[Tensor]]
+    dets = dets_per_img[0][0]  # [N,6]
+    # x1,y1 = top-left; x2,y2 = bottom-right (pixels in input letterbox space)
 ```
 
 Weight loading notes:

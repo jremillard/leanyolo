@@ -10,7 +10,6 @@ import torch
 
 from ..models import get_model
 from ..data.coco import coco80_class_names
-from ..utils.postprocess import decode_predictions
 from ..utils.box_ops import unletterbox_coords
 from ..utils.letterbox import letterbox
 from ..utils.viz import draw_detections
@@ -72,9 +71,10 @@ def infer_paths(
             img = _imread_rgb(str(ipath))
             lb_img, gain, pad = letterbox(img, new_shape=imgsz)
             x = _to_tensor(lb_img, device_t)
-            preds = model(x)
-            dets_per_img = decode_predictions(preds, num_classes=len(cn), strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))
-            dets = dets_per_img[0][0]
+            # Set decode thresholds on model and run; eval() already set
+            model.post_conf_thresh = conf
+            model.post_iou_thresh = iou
+            dets = model(x)[0][0]
             # Scale back to original image size
             if dets.numel() > 0:
                 dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=img.shape[:2])
