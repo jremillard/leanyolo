@@ -16,6 +16,9 @@ Input format:
 - Dtype/range: float32 in [0, 1] (scale by 1/255)
 - Tip: If loading images with OpenCV (BGR), convert to RGB first
 
+- Image size: Models are fully convolutional and accept arbitrary H×W. 640 is
+  a convenient default (divisible by 32 for strides 8/16/32 → 80/40/20 grids).
+
 Output format:
 - Returns a list of 3 tensors [P3, P4, P5]
 - Each tensor has shape (N, 4*reg_max + num_classes, H, W)
