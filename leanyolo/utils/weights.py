@@ -11,6 +11,10 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import torch
+import re
+import sys
+import types
+from torch.serialization import add_safe_globals
 
 
 @dataclass
@@ -66,12 +70,72 @@ class WeightsEntry:
             except Exception:
                 # Last resort: explicit weights_only=False for odd cases
                 return torch.load(path, map_location=map_location, weights_only=False)  # type: ignore[call-arg]
-        except Exception:
-            # Fallback path
+        except Exception as e:
+            # Attempt a safe load by dynamically stubbing missing globals (e.g., ultralytics classes)
             try:
-                return torch.load(path, map_location=map_location, weights_only=False)  # type: ignore[call-arg]
+                return self._safe_load_with_dynamic_stubs(path, map_location)
             except Exception:
-                return torch.load(path, map_location=map_location)
+                # Fallback path (may require external modules; only if trusted)
+                try:
+                    return torch.load(path, map_location=map_location, weights_only=False)  # type: ignore[call-arg]
+                except Exception:
+                    return torch.load(path, map_location=map_location)
+
+    def _safe_load_with_dynamic_stubs(self, path: str, map_location: str | torch.device):
+        """Load a checkpoint with weights_only=True by allowlisting missing globals.
+
+        This avoids importing external libraries (e.g., ultralytics) by creating
+        minimal stub modules and classes on-the-fly and registering them via
+        torch.serialization.add_safe_globals. Only class names required by the
+        checkpoint are stubbed, and no conversion is performed here.
+        """
+        attempted: set[str] = set()
+        for _ in range(64):  # guard against infinite loops
+            try:
+                return torch.load(path, map_location=map_location, weights_only=True)  # type: ignore[call-arg]
+            except Exception as ex:  # UnpicklingError with details
+                msg = str(ex)
+                # Look for pattern like: "Unsupported global: GLOBAL ultralytics.nn.tasks.YOLOv10DetectionModel"
+                m = re.search(r"Unsupported global: (?:GLOBAL\s+)?([\w\.]+)\.(\w+)", msg)
+                if not m:
+                    raise
+                mod_path, cls_name = m.group(1), m.group(2)
+                fqcn = f"{mod_path}.{cls_name}"
+                if fqcn in attempted:
+                    raise
+                attempted.add(fqcn)
+                # Create stub module hierarchy
+                cur_mod = None
+                parent = None
+                for i, part in enumerate(mod_path.split(".")):
+                    mod_full = ".".join(mod_path.split(".")[: i + 1])
+                    mod_obj = sys.modules.get(mod_full)
+                    if mod_obj is None:
+                        mod_obj = types.ModuleType(mod_full)
+                        sys.modules[mod_full] = mod_obj
+                        if parent is not None:
+                            setattr(parent, part, mod_obj)
+                    parent = mod_obj
+                # Define a minimal stub class with a permissive state_dict() accessor
+                mod_obj = sys.modules[mod_path]
+                if not hasattr(mod_obj, cls_name):
+                    # Create a new type under the module
+                    Stub = type(
+                        cls_name,
+                        (object,),
+                        {
+                            "__module__": mod_path,
+                            # Provide a benign state_dict() to satisfy callers; actual tensors are
+                            # extracted from nested dicts by downstream utilities.
+                            "state_dict": lambda self: {},
+                        },
+                    )
+                    setattr(mod_obj, cls_name, Stub)
+                    add_safe_globals([Stub])
+                else:
+                    add_safe_globals([getattr(mod_obj, cls_name)])
+        # If we somehow exit the loop
+        raise RuntimeError("Failed to safely load checkpoint with dynamic stubs")
 
     def get_state_dict(
         self,

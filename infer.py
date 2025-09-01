@@ -110,6 +110,21 @@ def infer_paths(
             vis = draw_detections(bgr, dets, class_names=cn)
             out_path = os.path.join(save_dir, ipath.name)
             cv2.imwrite(out_path, vis)
+            # Print status for coding agents
+            print(f"Infer: input='{ipath}', output='{out_path}'")
+            if dets.numel() == 0:
+                print("  detections: 0")
+            else:
+                print(f"  detections: {dets.shape[0]}")
+                for i in range(dets.shape[0]):
+                    x1, y1, x2, y2, score, cls_idx = dets[i].tolist()
+                    cls_idx_int = int(cls_idx)
+                    cls_name = cn[cls_idx_int] if 0 <= cls_idx_int < len(cn) else str(cls_idx_int)
+                    print(
+                        "  box[{}]: x1={:.1f}, y1={:.1f}, x2={:.1f}, y2={:.1f}, score={:.3f}, cls='{}' ({})".format(
+                            i, x1, y1, x2, y2, score, cls_name, cls_idx_int
+                        )
+                    )
             results.append((str(ipath), dets))
 
     return results
@@ -125,7 +140,7 @@ def main():
         cats = sorted(data.get('categories', []), key=lambda c: c.get('id', 0))
         class_names = [c.get('name', str(i)) for i, c in enumerate(cats)]
 
-    _ = infer_paths(
+    results = infer_paths(
         source=args.source,
         model_name=args.model,
         weights=None if args.weights in {"", "none", "None", "NONE"} else args.weights,
@@ -136,6 +151,9 @@ def main():
         save_dir=args.save_dir,
         class_names=class_names,
     )
+    # Print a brief summary
+    total = sum(int(d.shape[0]) for _, d in results)
+    print(f"Done: {len(results)} image(s), total detections={total}")
 
 
 if __name__ == "__main__":

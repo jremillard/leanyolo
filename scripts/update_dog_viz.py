@@ -85,6 +85,21 @@ def main() -> None:
     # Draw on original BGR and save
     vis = draw_detections(bgr, dets, class_names=cn)
     cv2.imwrite(str(OUT_PATH), vis)
+    # Print status and boxes for coding agents
+    print(f"Dog: input='{DOG_PATH}', output='{OUT_PATH}', model='{MODEL}', imgsz={IMGSZ}, conf={CONF}, iou={IOU}")
+    if dets.numel() == 0:
+        print("  detections: 0")
+    else:
+        print(f"  detections: {dets.shape[0]}")
+        for i in range(dets.shape[0]):
+            x1, y1, x2, y2, score, cls_idx = dets[i].tolist()
+            cls_idx_int = int(cls_idx)
+            cls_name = cn[cls_idx_int] if 0 <= cls_idx_int < len(cn) else str(cls_idx_int)
+            print(
+                "  box[{}]: x1={:.1f}, y1={:.1f}, x2={:.1f}, y2={:.1f}, score={:.3f}, cls='{}' ({})".format(
+                    i, x1, y1, x2, y2, score, cls_name, cls_idx_int
+                )
+            )
 
     # Cleanup: keep only dog.jpg and dog_viz.jpg
     keep = {str(DOG_PATH.resolve()), str(OUT_PATH.resolve())}

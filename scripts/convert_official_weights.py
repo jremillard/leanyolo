@@ -3,7 +3,7 @@ from __future__ import annotations
 
 """Convert PRETRAINED_COCO weights to a plain state_dict checkpoint.
 
-This script instantiates a YOLOv10 model via `get_model(weights='PRETRAINED_COCO')`
+This script instantiates a lean YOLO model via `get_model(weights='PRETRAINED_COCO')`
 and saves its `state_dict()` to the given path. The resulting `.pt` file is a
 standard PyTorch state_dict compatible with `get_model(weights='/path/to/file.pt')`.
 

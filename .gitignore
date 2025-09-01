@@ -152,6 +152,7 @@ venv.bak/
 venv-ref/
 .venv-ref/
 yolov10-official/
+weights/
 
 # COCO datasets (do not commit images or labels)
 data/coco/images/

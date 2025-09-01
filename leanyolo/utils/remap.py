@@ -15,6 +15,37 @@ POSSIBLE_STATE_KEYS = (
 )
 
 
+def _module_like_to_state_dict(mod, prefix: str = "") -> Dict[str, torch.Tensor]:
+    """Extract state_dict from an nn.Module-like object without calling methods.
+
+    Traverses attributes `_parameters`, `_buffers`, and `_modules` recursively
+    to build a flat dict of tensors keyed by hierarchical names. This works for
+    safely-unpickled objects that mimic nn.Module structure but don't implement
+    a functional state_dict method (e.g., when loaded with weights_only=True and
+    stubbed classes).
+    """
+    out: Dict[str, torch.Tensor] = {}
+    try:
+        params = getattr(mod, "_parameters", None)
+        if isinstance(params, dict):
+            for k, v in params.items():
+                if isinstance(v, torch.Tensor):
+                    out[prefix + k] = v
+        buffers = getattr(mod, "_buffers", None)
+        if isinstance(buffers, dict):
+            for k, v in buffers.items():
+                if isinstance(v, torch.Tensor):
+                    out[prefix + k] = v
+        children = getattr(mod, "_modules", None)
+        if isinstance(children, dict):
+            for name, child in children.items():
+                child_prefix = prefix + (name + "." if prefix or name else "")
+                out.update(_module_like_to_state_dict(child, child_prefix))
+    except Exception:
+        pass
+    return out
+
+
 def extract_state_dict(obj: Dict) -> Dict[str, torch.Tensor]:
     """Extract a flat state_dict from various checkpoint formats.
 
@@ -29,6 +60,10 @@ def extract_state_dict(obj: Dict) -> Dict[str, torch.Tensor]:
                 return sd
         except Exception:
             pass
+    # Fallback: handle module-like objects without calling methods
+    ml = _module_like_to_state_dict(obj)
+    if ml:
+        return ml
 
     if isinstance(obj, dict):
         # If it already looks like a state_dict
@@ -49,6 +84,9 @@ def extract_state_dict(obj: Dict) -> Dict[str, torch.Tensor]:
                         return sd
                 except Exception:
                     pass
+            ml = _module_like_to_state_dict(v)
+            if ml:
+                return ml
             # If nested dict
             if isinstance(v, dict) and v:
                 inner = v
@@ -61,6 +99,9 @@ def extract_state_dict(obj: Dict) -> Dict[str, torch.Tensor]:
                                 return sd
                         except Exception:
                             pass
+                    ml2 = _module_like_to_state_dict(vv)
+                    if ml2:
+                        return ml2
                     if isinstance(vv, dict) and vv:
                         inner = vv
                         break
