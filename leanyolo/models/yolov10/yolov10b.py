@@ -10,6 +10,10 @@ Input format:
 - Color order: RGB (not BGR)
 - Dtype/range: float32 in [0, 1] (scale by 1/255)
 - Tip: If loading images with OpenCV (BGR), convert to RGB first
+- Normalization: controlled by `input_norm_subtract` and `input_norm_divide` per
+  channel: x' = (x - subtract) / divide. The raw model expects inputs in [0,1]
+  (linear, i.e., 1/255). Recommended defaults for pretrained COCO are
+  subtract=[0,0,0], divide=[255,255,255]. Use [0,0,0] and [1,1,1] to skip.
 
 - Image size: Models are fully convolutional and accept arbitrary H×W. 640 is
   a convenient default (divisible by 32 for strides 8/16/32 → 80/40/20 grids).
