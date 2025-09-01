@@ -14,7 +14,8 @@ def _load_lean_with_official_weights(model_name: str):
     from leanyolo.models import get_model, get_model_weights
     from leanyolo.utils.remap import remap_official_yolov10_to_lean
 
-    m = get_model(model_name, weights=None, num_classes=80)
+    from leanyolo.data.coco import coco80_class_names
+    m = get_model(model_name, weights=None, class_names=coco80_class_names())
 
     # Ensure official repo importable
     import sys

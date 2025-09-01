@@ -27,7 +27,7 @@ Note:
   NMS, unletterbox). See leanyolo.engine.infer for a reference pipeline.
 """
 
-from typing import List
+from typing import List, Sequence
 
 import torch
 import torch.nn as nn
@@ -43,8 +43,9 @@ class YOLOv10b(nn.Module):
     REPS = {2: 2, 4: 4, 6: 4, 8: 2, 13: 2, 16: 2, 19: 2, 22: 2}
     TYPES = {"c6": "C2f", "c8": "C2fCIB", "p5_p4": "C2fCIB", "p3_p4": "C2fCIB", "p4_p5": "C2fCIB"}
 
-    def __init__(self, *, num_classes: int, in_channels: int):
+    def __init__(self, *, class_names: Sequence[str], in_channels: int):
         super().__init__()
+        self.class_names = list(class_names)
         self.backbone = YOLOv10Backbone(
             in_channels=in_channels,
             CH=self.CH,
@@ -64,7 +65,7 @@ class YOLOv10b(nn.Module):
             use_lk_p4_p5=False,
         )
         p3, p4, p5 = self.neck.out_c
-        self.head = V10Detect(nc=num_classes, ch=(p3, p4, p5), reg_max=16)
+        self.head = V10Detect(nc=len(self.class_names), ch=(p3, p4, p5), reg_max=16)
         self._init_head_bias()
 
     def _init_head_bias(self) -> None:

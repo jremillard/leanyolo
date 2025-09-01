@@ -12,6 +12,7 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 from ..models import get_model
+from ..data.coco import coco80_class_names
 from ..utils.postprocess import decode_predictions
 from ..utils.box_ops import unletterbox_coords
 from ..utils.letterbox import letterbox
@@ -46,7 +47,8 @@ def validate_coco(
     coco = COCO(str(ann_json))
     cat_ids = load_coco_categories(ann_json)
 
-    model = get_model(model_name, weights=weights, num_classes=80)
+    cn = coco80_class_names()
+    model = get_model(model_name, weights=weights, class_names=cn)
     model.to(device_t).eval()
 
     results = []
@@ -57,7 +59,7 @@ def validate_coco(
         x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
 
         preds = model(x)
-        dets = decode_predictions(preds, num_classes=80, strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))[0][0]
+        dets = decode_predictions(preds, num_classes=len(cn), strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))[0][0]
         if dets.numel() == 0:
             continue
         # Scale boxes back

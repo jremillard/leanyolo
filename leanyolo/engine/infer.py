@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from ..models import get_model
+from ..data.coco import coco80_class_names
 from ..utils.postprocess import decode_predictions
 from ..utils.box_ops import unletterbox_coords
 from ..utils.letterbox import letterbox
@@ -46,7 +47,8 @@ def infer_paths(
     class_names: List[str] | None = None,
 ) -> List[Tuple[str, torch.Tensor]]:
     device_t = torch.device(device)
-    model = get_model(model_name, weights=weights, num_classes=80)
+    cn = class_names or coco80_class_names()
+    model = get_model(model_name, weights=weights, class_names=cn)
     model.to(device_t).eval()
 
     p = Path(source)
@@ -65,7 +67,7 @@ def infer_paths(
             lb_img, gain, pad = letterbox(img, new_shape=imgsz)
             x = _to_tensor(lb_img, device_t)
             preds = model(x)
-            dets_per_img = decode_predictions(preds, num_classes=80, strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))
+            dets_per_img = decode_predictions(preds, num_classes=len(cn), strides=(8, 16, 32), conf_thresh=conf, iou_thresh=iou, img_size=(imgsz, imgsz))
             dets = dets_per_img[0][0]
             # Scale back to original image size
             if dets.numel() > 0:
@@ -74,7 +76,7 @@ def infer_paths(
             # Save visualization
             rgb = img
             bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-            vis = draw_detections(bgr, dets, class_names=class_names)
+            vis = draw_detections(bgr, dets, class_names=cn)
             out_path = os.path.join(save_dir, ipath.name)
             cv2.imwrite(out_path, vis)
             results.append((str(ipath), dets))

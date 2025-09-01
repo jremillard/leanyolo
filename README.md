@@ -43,17 +43,18 @@ Build a model using PyTorch-style API with model registry pattern:
 ```python
 import torch
 from leanyolo.models import get_model, get_model_weights, list_models
+from leanyolo.data.coco import coco80_class_names
 
 # List available models (similar to torchvision.models)
 all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
 print(f"Available models: {all_models}")
 
 # Load a model with pretrained weights (weights="DEFAULT" loads official weights)
-model = get_model("yolov10s", weights="DEFAULT", num_classes=80)
+model = get_model("yolov10s", weights="DEFAULT", class_names=coco80_class_names())
 model.eval()
 
 # Alternative: load with specific configuration
-model = get_model("yolov10s", weights=None, num_classes=80)  # No pretrained weights
+model = get_model("yolov10s", weights=None, class_names=coco80_class_names())  # No pretrained weights
 model.eval()
 
 # Load weights separately if needed

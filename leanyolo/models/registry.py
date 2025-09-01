@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterable, Optional, Type
+from typing import Callable, Dict, Iterable, Optional, Type, Sequence
 
 import torch
 import torch.nn as nn
@@ -30,39 +30,39 @@ _VARIANTS = ("yolov10n", "yolov10s", "yolov10m", "yolov10b", "yolov10l", "yolov1
 
 
 @_register_model("yolov10n")
-def _build_yolov10n(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10n(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10n import YOLOv10n
-    return YOLOv10n(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10n(class_names=class_names, in_channels=in_channels)
 
 
 @_register_model("yolov10s")
-def _build_yolov10s(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10s(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10s import YOLOv10s
-    return YOLOv10s(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10s(class_names=class_names, in_channels=in_channels)
 
 
 @_register_model("yolov10m")
-def _build_yolov10m(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10m(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10m import YOLOv10m
-    return YOLOv10m(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10m(class_names=class_names, in_channels=in_channels)
 
 
 @_register_model("yolov10b")
-def _build_yolov10b(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10b(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10b import YOLOv10b
-    return YOLOv10b(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10b(class_names=class_names, in_channels=in_channels)
 
 
 @_register_model("yolov10l")
-def _build_yolov10l(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10l(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10l import YOLOv10l
-    return YOLOv10l(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10l(class_names=class_names, in_channels=in_channels)
 
 
 @_register_model("yolov10x")
-def _build_yolov10x(num_classes: int = 80, in_channels: int = 3) -> nn.Module:
+def _build_yolov10x(class_names: Sequence[str], in_channels: int = 3) -> nn.Module:
     from .yolov10.yolov10x import YOLOv10x
-    return YOLOv10x(num_classes=num_classes, in_channels=in_channels)
+    return YOLOv10x(class_names=class_names, in_channels=in_channels)
 
 
 # Weights registry per model name
@@ -150,7 +150,7 @@ def get_model(
     name: str,
     *,
     weights: Optional[str],
-    num_classes: int,
+    class_names: Sequence[str],
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
 
@@ -161,7 +161,7 @@ def get_model(
     Args:
         name: Model name (e.g., 'yolov10s').
         weights: Weight key (e.g., 'DEFAULT') or None to skip loading. Must be provided explicitly.
-        num_classes: Number of classes; must be provided explicitly (e.g., 80 for COCO).
+        class_names: Sequence of class names for the dataset; length defines number of classes.
 
     Returns:
         torch.nn.Module: Instantiated model.
@@ -169,7 +169,7 @@ def get_model(
     if name not in _MODEL_BUILDERS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
     # Models expect 3-channel RGB input; hard-code in_channels=3
-    model = _MODEL_BUILDERS[name](num_classes=num_classes, in_channels=3)
+    model = _MODEL_BUILDERS[name](class_names=class_names, in_channels=3)
     if weights:
         try:
             entry = _YOLOv10Weights().get(name, weights)

@@ -27,6 +27,7 @@ import cv2
 import torch
 
 from leanyolo.models import get_model
+from leanyolo.data.coco import coco80_class_names
 from leanyolo.utils.letterbox import letterbox
 from leanyolo.utils.postprocess import decode_predictions
 from leanyolo.utils.box_ops import unletterbox_coords
@@ -57,7 +58,8 @@ def ensure_dog(path: Path = DOG_PATH) -> None:
 def main() -> None:
     ensure_dog()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model(MODEL, weights="DEFAULT", num_classes=80).to(device).eval()
+    cn = coco80_class_names()
+    model = get_model(MODEL, weights="DEFAULT", class_names=cn).to(device).eval()
 
     # Load image (RGB path in pipeline)
     bgr = cv2.imread(str(DOG_PATH), cv2.IMREAD_COLOR)
@@ -71,7 +73,7 @@ def main() -> None:
         preds = model(x)
     dets = decode_predictions(
         preds,
-        num_classes=80,
+        num_classes=len(cn),
         strides=(8, 16, 32),
         conf_thresh=CONF,
         iou_thresh=IOU,
@@ -81,7 +83,7 @@ def main() -> None:
         dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=rgb.shape[:2])
 
     # Draw on original BGR and save
-    vis = draw_detections(bgr, dets)
+    vis = draw_detections(bgr, dets, class_names=cn)
     cv2.imwrite(str(OUT_PATH), vis)
 
     # Cleanup: keep only dog.jpg and dog_viz.jpg
