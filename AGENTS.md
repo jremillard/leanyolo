@@ -102,18 +102,23 @@ Tips:
 
 ### Environment Policy (Required)
 
-- All Python commands and unit tests for this repository must be executed inside the local virtual environment `.venv`.
-- When benchmarking or generating parity data from the official YOLOv10 implementation, all Python commands must be executed inside that repo’s dedicated environment `.venv-ref`.
+- Use the single local virtual environment `.venv` for all development, training, and evaluation.
+- `.venv` must have GPU-enabled PyTorch installed if you have a CUDA-capable system. Do not create additional envs (e.g., `.venv-gpu`).
 - Do not use the system Python. Either activate the environment or call the interpreter explicitly.
 
 Examples
 - Repo dev (this repo): `source .venv/bin/activate` then run `python`, `pip`, `pytest`; or use explicit paths `./.venv/bin/python`, `./.venv/bin/pytest`.
-- Official benchmarking (yolov10-official): `source .venv-ref/bin/activate` or `./.venv-ref/bin/python ...`.
+- Ensure `.venv` uses CUDA wheels when available:
+  - `./.venv/bin/python -m pip install --upgrade --extra-index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio`
+
+- When running (yolov10-official): `source ./yolov10-official/.venv/bin/activate` or `./yolov10-official/.venv/bin/python ...`.
+
 
 Quick checks
 ```
 ./.venv/bin/python -c "import sys; print(sys.executable)"   # should resolve to .venv
 ./.venv/bin/pytest -q                                       # run tests (when available)
+./.venv/bin/python -c "import torch; print(torch.__version__, torch.cuda.is_available())"  # CUDA True if GPU available
 ```
 
 ### Development Requirements

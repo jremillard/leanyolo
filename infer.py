@@ -16,11 +16,21 @@ def parse_args():
     ap.add_argument("--iou", type=float, default=0.45, help="IoU threshold")
     ap.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     ap.add_argument("--save-dir", default="runs/infer/exp", help="Save directory")
+    ap.add_argument("--classes-ann", default=None, help="Optional: COCO-style annotations JSON to derive class names")
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
+    # Optional classes from COCO annotations
+    class_names = None
+    if args.classes_ann:
+        import json
+        with open(args.classes_ann, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        cats = sorted(data.get('categories', []), key=lambda c: c.get('id', 0))
+        class_names = [c.get('name', str(i)) for i, c in enumerate(cats)]
+
     _ = infer_paths(
         source=args.source,
         model_name=args.model,
@@ -30,6 +40,7 @@ def main():
         iou=args.iou,
         device=args.device,
         save_dir=args.save_dir,
+        class_names=class_names,
     )
 
 

@@ -181,3 +181,58 @@ Based on the descriptions above, the original YOLO papers are important for comp
 
 ## License
 MIT License — see `LICENSE` for details.
+## Transfer Learning (Aquarium)
+
+Train YOLOv10 on the Kaggle Aquarium dataset (COCO-style):
+
+1) Download and prepare dataset (requires Kaggle API or a local zip):
+
+```
+./.venv/bin/python scripts/download_aquarium.py --root data/aquarium --zip data/AquariumDataset.zip
+```
+
+This prepares:
+```
+data/aquarium/
+  images/train/ ...
+  images/val/   ...
+  train.json
+  val.json
+```
+
+2) Train with basic transfer learning (freeze backbone/neck, reset head):
+
+```
+./.venv/bin/python train.py \
+  --train-images data/aquarium/images/train \
+  --train-ann data/aquarium/train.json \
+  --val-images data/aquarium/images/val \
+  --val-ann data/aquarium/val.json \
+  --model yolov10n \
+  --weights PRETRAINED_COCO \
+  --imgsz 640 \
+  --epochs 20 \
+  --batch-size 16 \
+  --device cuda \
+  --freeze-backbone \
+  --head-reset \
+  --save-dir runs/train/aquarium_n
+```
+
+3) Validate the trained checkpoint and save annotated images:
+
+```
+./.venv/bin/python val.py \
+  --images data/aquarium/images/val \
+  --ann data/aquarium/val.json \
+  --model yolov10n \
+  --weights runs/train/aquarium_n/ckpt.pt \
+  --imgsz 640 \
+  --device cuda \
+  --save-viz-dir runs/val/aquarium_viz
+```
+
+Notes:
+- The model normalizes inputs internally (divide by 255). No external scaling needed.
+- Full mAP evaluation (COCO-style) runs after each epoch on the validation set.
+- The training script saves checkpoints per epoch and a final `ckpt.pt`, which can be loaded via `get_model(name, weights="/path/to/ckpt.pt", class_names=...)`.

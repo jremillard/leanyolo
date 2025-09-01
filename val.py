@@ -9,16 +9,19 @@ from leanyolo.engine.eval import validate_coco
 
 def parse_args():
     ap = argparse.ArgumentParser(description="Lean YOLOv10 COCO validation")
-    ap.add_argument("--data-root", default="data/coco", help="COCO root directory")
+    ap.add_argument("--data-root", default="data/coco", help="COCO root directory (or ignored if --images/--ann provided)")
     ap.add_argument("--download", action="store_true", help="Download COCO val2017 if missing")
     ap.add_argument("--model", default="yolov10s", help="Model name")
     ap.add_argument("--weights", default="PRETRAINED_COCO", help="Weights key or None for random init")
+    ap.add_argument("--images", default=None, help="Optional: explicit images directory (COCO)")
+    ap.add_argument("--ann", default=None, help="Optional: explicit annotations JSON (COCO)")
     ap.add_argument("--imgsz", type=int, default=640, help="Image size")
     ap.add_argument("--conf", type=float, default=0.001, help="Confidence threshold")
     ap.add_argument("--iou", type=float, default=0.65, help="IoU threshold")
     ap.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     ap.add_argument("--max-images", type=int, default=None, help="Validate on first N images")
     ap.add_argument("--save-json", default=None, help="Optional: path to save detections JSON")
+    ap.add_argument("--save-viz-dir", default=None, help="Optional: directory to save annotated images")
     return ap.parse_args()
 
 
@@ -36,6 +39,9 @@ def main():
         device=args.device,
         max_images=args.max_images,
         save_json=args.save_json,
+        images_dir=args.images,
+        ann_json=args.ann,
+        save_viz_dir=args.save_viz_dir,
     )
     print({k: round(v, 5) for k, v in stats.items()})
 

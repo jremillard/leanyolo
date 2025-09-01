@@ -55,6 +55,7 @@ coverage.xml
 .pytest_cache/
 cover/
 leanyolo/tests/reports
+runs/
 
 # Translations
 *.mo
@@ -157,6 +158,9 @@ data/coco/images/
 data/coco/annotations/
 data/coco/*/images/
 data/coco/*/annotations.json
+data/aquarium/
+data/**/*.zip
+data/*.zip
 
 # Spyder project settings
 .spyderproject

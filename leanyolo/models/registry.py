@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Callable, Dict, Iterable, Optional, Type, Sequence
+import os
 
 import torch
 import torch.nn as nn
@@ -151,8 +152,8 @@ def get_model(
     *,
     weights: Optional[str],
     class_names: Sequence[str],
-    input_norm_subtract: Sequence[float],
-    input_norm_divide: Sequence[float],
+    input_norm_subtract: Optional[Sequence[float]] = None,
+    input_norm_divide: Optional[Sequence[float]] = None,
 ) -> nn.Module:
     """Create a model by name, optionally loading weights.
 
@@ -164,17 +165,19 @@ def get_model(
         name: Model name (e.g., 'yolov10s').
         weights: Weight key (must be 'PRETRAINED_COCO') or None to skip loading.
         class_names: Sequence of class names for the dataset; length defines number of classes.
-        input_norm_subtract: Per-channel mean to subtract. Length must be 3 or 1 (broadcast).
-        input_norm_divide: Per-channel divisor to divide by. Length must be 3 or 1 (broadcast).
+        input_norm_subtract: Optional per-channel mean to subtract. If None, uses [0,0,0]. Length must be 3 or 1.
+        input_norm_divide: Optional per-channel divisor. If None, uses [255,255,255]. Length must be 3 or 1.
 
     Returns:
         torch.nn.Module: Instantiated model.
     """
     if name not in _MODEL_BUILDERS:
         raise ValueError(f"Unknown model '{name}'. Available: {list_models()}")
-    # Validate normalization vectors (required)
-    if input_norm_subtract is None or input_norm_divide is None:
-        raise ValueError("subtract_mean and divide are required")
+    # Provide defaults for normalization vectors (divide by 255; no subtract)
+    if input_norm_subtract is None:
+        input_norm_subtract = (0.0, 0.0, 0.0)
+    if input_norm_divide is None:
+        input_norm_divide = (255.0, 255.0, 255.0)
     def _to3(x: Sequence[float]) -> Sequence[float]:
         if len(x) == 1:
             return [float(x[0])] * 3
@@ -186,8 +189,27 @@ def get_model(
     # Models expect 3-channel RGB input; hard-code in_channels=3
     model = _MODEL_BUILDERS[name](class_names=class_names, input_norm_subtract=sub3, input_norm_divide=div3, in_channels=3)
     if weights is not None:
+        # Local checkpoint path support
+        if isinstance(weights, str) and os.path.isfile(weights):
+            try:
+                ckpt = torch.load(weights, map_location="cpu", weights_only=False)
+                if not isinstance(ckpt, dict):
+                    raise ValueError("checkpoint must be a dict")
+                mname = ckpt.get("model_name")
+                cls = ckpt.get("class_names")
+                sd = ckpt.get("state_dict")
+                if mname != name:
+                    raise ValueError(f"Checkpoint model_name '{mname}' does not match requested '{name}'")
+                if not isinstance(cls, (list, tuple)) or list(cls) != list(class_names):
+                    raise ValueError("Checkpoint class_names do not match provided class_names")
+                if not isinstance(sd, dict):
+                    raise ValueError("Checkpoint missing state_dict")
+                model.load_state_dict(sd, strict=True)
+                return model
+            except Exception as e:
+                raise ValueError(f"Failed to load local checkpoint '{weights}': {e}")
         if weights != "PRETRAINED_COCO":
-            raise ValueError("weights must be 'PRETRAINED_COCO' or None")
+            raise ValueError("weights must be a filename, 'PRETRAINED_COCO', or None")
         try:
             entry = _YOLOv10Weights().get(name, "PRETRAINED_COCO")
             loaded_obj = entry.get_state_dict(progress=True)
