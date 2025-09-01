@@ -4,6 +4,12 @@ from __future__ import annotations
 
 The large (l) variant increases capacity for higher accuracy on larger devices.
 Structure is the same as other variants, with bigger channels and more repeats.
+
+Input format:
+- Tensor layout: CHW, shape (N, C, H, W)
+- Color order: RGB (not BGR)
+- Dtype/range: float32 in [0, 1] (scale by 1/255)
+- Tip: If loading images with OpenCV (BGR), convert to RGB first
 """
 
 from typing import List

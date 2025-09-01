@@ -4,6 +4,12 @@ from __future__ import annotations
 
 The base (b) variant is similar in capacity to `l` with slightly different
 channel choices; included to match official family sizing.
+
+Input format:
+- Tensor layout: CHW, shape (N, C, H, W)
+- Color order: RGB (not BGR)
+- Dtype/range: float32 in [0, 1] (scale by 1/255)
+- Tip: If loading images with OpenCV (BGR), convert to RGB first
 """
 
 from typing import List

@@ -4,6 +4,12 @@ from __future__ import annotations
 
 The nano (n) variant trades accuracy for speed by using smaller channel sizes
 and fewer block repetitions. Structure is identical to other variants.
+
+Input format:
+- Tensor layout: CHW, shape (N, C, H, W)
+- Color order: RGB (not BGR)
+- Dtype/range: float32 in [0, 1] (scale by 1/255)
+- Tip: If loading images with OpenCV (BGR), convert to RGB first
 """
 
 from typing import List

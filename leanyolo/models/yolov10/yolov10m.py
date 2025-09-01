@@ -3,6 +3,12 @@ from __future__ import annotations
 """YOLOv10-m model definition.
 
 The medium (m) variant provides a balance of speed and accuracy.
+
+Input format:
+- Tensor layout: CHW, shape (N, C, H, W)
+- Color order: RGB (not BGR)
+- Dtype/range: float32 in [0, 1] (scale by 1/255)
+- Tip: If loading images with OpenCV (BGR), convert to RGB first
 """
 
 from typing import List

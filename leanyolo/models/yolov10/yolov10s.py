@@ -9,6 +9,12 @@ head with the appropriate sizes for this model.
 If you are new to detection models, read the README’s high-level overview and
 paper references. The forward pass is: image → backbone (C3/C4/C5) → neck
 (P3/P4/P5) → head (per-scale outputs).
+
+Input format:
+- Tensor layout: CHW, shape (N, C, H, W)
+- Color order: RGB (not BGR)
+- Dtype/range: float32 in [0, 1] (scale by 1/255)
+- Tip: If loading images with OpenCV (BGR), convert to RGB first
 """
 
 from typing import List
