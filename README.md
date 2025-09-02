@@ -103,6 +103,8 @@ CLI entrypoints (copy/paste friendly)
 - `infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
 - `val.py`: COCO validation (downloads val2017 on demand) and JSON export
 - `scripts/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
+- `scripts/prepare_acquirium.py`: unzip + arrange Aquarium into COCO layout (Windows‑friendly; no symlinks)
+- `scripts/transfer_learn_aquarium.py`: transfer learning example with AMP, warmup+cosine LR, light aug, gradual unfreeze
 
 These scripts are intentionally simple and serve as example code. Feel free to
 copy/paste and adapt them for your own datasets and pipelines.
@@ -204,7 +206,28 @@ data/aquarium/
   val.json
 ```
 
-2) Train with basic transfer learning (freeze backbone/neck, reset head):
+2) Train (best‑practice transfer learning script)
+
+Recommended command (CUDA, 50 epochs, 640 resolution, AMP on by default):
+
+```
+./.venv/bin/python scripts/transfer_learn_aquarium.py \
+  --root data/aquarium \
+  --device cuda \
+  --model yolov10m \
+  --weights PRETRAINED_COCO \
+  --imgsz 640 \
+  --epochs 50 \
+  --batch-size 32 \
+  --save-dir runs/transfer/aquarium_yolov10m_640
+```
+
+Notes:
+- AMP enabled by default; disable with `--no-amp` if needed.
+- Backbone/neck frozen and head reset by default; unfreezes at epoch 5 (configurable).
+- If you see OOM, reduce `--batch-size` (16–24 for 16 GB is typical at 640). 
+
+Alternate baseline trainer (simple loop), if you prefer:
 
 ```
 ./.venv/bin/python scripts/train.py \
@@ -223,7 +246,26 @@ data/aquarium/
   --save-dir runs/train/aquarium_n
 ```
 
-3) Validate the trained checkpoint and save annotated images:
+3) Inference with your trained checkpoint
+
+Use the best epoch from the log (e.g., epoch035.pt), make sure `--model` matches the trained variant:
+
+```
+./.venv/bin/python infer.py \
+  --source data/aquarium/images/val \
+  --model yolov10m \
+  --weights runs/transfer/aquarium_yolov10m_640/epoch035.pt \
+  --imgsz 640 \
+  --conf 0.25 \
+  --iou 0.65 \
+  --device cuda \
+  --classes-ann data/aquarium/val.json \
+  --save-dir runs/infer/aquarium_yolov10m_640_e35
+```
+
+Latest run snapshot (yolov10m, 640, 50 epochs):
+- Best mAP50‑95 ≈ 0.389 at epoch 35, stable plateau ~0.38–0.39.
+- Smooth loss decline; no obvious overfitting. Consider early‑stopping around best epoch.
 
 ```
 ./.venv/bin/python val.py \
