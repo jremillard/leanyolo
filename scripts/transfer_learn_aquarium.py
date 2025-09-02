@@ -80,7 +80,7 @@ def load_class_names_from_coco(ann_path: str | Path) -> List[str]:
 
 
 @torch.no_grad()
-def evaluate_coco(
+def evaluate(
     model: torch.nn.Module,
     images_dir: str | Path,
     ann_json: str | Path,
@@ -93,6 +93,13 @@ def evaluate_coco(
     progress: bool = False,
     log_every: int = 20,
 ) -> Dict[str, float]:
+    """Compute COCO-style mAP on a dataset annotated in COCO JSON format.
+
+    This evaluates any dataset that provides COCO-format annotations (like Aquarium
+    prepared in this repo), using pycocotools to compute mAP50-95/mAP50/mAP75.
+
+    Returns a dict with keys: "mAP50-95", "mAP50", "mAP75".
+    """
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
     model.eval()
@@ -446,7 +453,7 @@ def main() -> None:
         do_eval = val_images is not None and val_ann is not None
         if do_eval and (not args.debug or ((epoch + 1) % max(1, args.debug_eval_every) == 0)):
             try:
-                stats = evaluate_coco(model, images_dir=val_images or "", ann_json=val_ann or "", imgsz=args.imgsz, device=args.device, conf=args.eval_conf, iou=args.eval_iou, max_images=(args.debug_val_size if args.debug else None), progress=False)
+                stats = evaluate(model, images_dir=val_images or "", ann_json=val_ann or "", imgsz=args.imgsz, device=args.device, conf=args.eval_conf, iou=args.eval_iou, max_images=(args.debug_val_size if args.debug else None), progress=False)
                 logger.info("[val] " + ", ".join(f"{k}={v:.5f}" for k, v in stats.items()))
             except Exception as e:
                 logger.info(f"[val] evaluation failed: {e}")
