@@ -16,17 +16,42 @@ def _exp_from_dfl(logits: torch.Tensor, reg_max: int) -> torch.Tensor:
 
 
 def _dfl_loss(logits: torch.Tensor, target: torch.Tensor, reg_max: int) -> torch.Tensor:
-    x = logits.view(4, reg_max)
-    t = target.clamp(0, reg_max - 1 - 1e-3)
-    l = t.floor()
-    u = l + 1
-    wl = (u - t).detach()
-    wu = (t - l).detach()
-    l = l.long()
-    u = u.long()
-    ce = F.cross_entropy
-    loss = ce(x, l, reduction="none") * wl + ce(x, u, reduction="none") * wu
-    return loss.sum()
+    """DFL loss supporting vector or batch inputs.
+
+    Args:
+        logits: [..., 4*reg_max]
+        target: [..., 4]
+    Returns:
+        scalar DFL loss (sum over items and sides)
+    """
+    if logits.dim() == 1:
+        x = logits.view(4, reg_max)
+        t = target.clamp(0, reg_max - 1 - 1e-3)
+        l = t.floor()
+        u = l + 1
+        wl = (u - t).detach()
+        wu = (t - l).detach()
+        l = l.long()
+        u = u.long()
+        ce = F.cross_entropy
+        loss = ce(x, l, reduction="none") * wl + ce(x, u, reduction="none") * wu
+        return loss.sum()
+    else:
+        N = logits.shape[0]
+        x = logits.view(N, 4, reg_max)
+        t = target.clamp(0, reg_max - 1 - 1e-3).view(N, 4)
+        l = t.floor()
+        u = l + 1
+        wl = (u - t).detach()
+        wu = (t - l).detach()
+        l = l.long()
+        u = u.long()
+        ce = F.cross_entropy
+        # compute per-side losses then sum over sides and batch
+        loss_l = ce(x.view(-1, reg_max), l.view(-1), reduction="none").view(N, 4)
+        loss_u = ce(x.view(-1, reg_max), u.view(-1), reduction="none").view(N, 4)
+        loss = loss_l * wl + loss_u * wu
+        return loss.sum()
 
 
 def _flatten_feats_to_preds(feats: Sequence[torch.Tensor], num_classes: int, reg_max: int) -> Tuple[torch.Tensor, torch.Tensor, List[torch.Tensor]]:
@@ -86,7 +111,7 @@ def _v8_detection_loss(
     # Assignment
     assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=num_classes, alpha=0.5, beta=6.0)
     target_labels, target_bboxes, target_scores, fg_mask, _ = assigner(
-        pred_scores, pred_bboxes * stride_tensor[None, ...], anchor_points, gt_labels, gt_bboxes, mask_gt
+        pred_scores, pred_bboxes * stride_tensor[None, ...], anchor_points * stride_tensor, gt_labels, gt_bboxes, mask_gt
     )
     # Normalize target scores sum
     target_scores_sum = max(target_scores.sum().item(), 1.0)

@@ -37,12 +37,18 @@ def parse_args():
     ap.add_argument("--images", default=None, help="Optional: explicit images directory (COCO)")
     ap.add_argument("--ann", default=None, help="Optional: explicit annotations JSON (COCO)")
     ap.add_argument("--imgsz", type=int, default=640, help="Image size")
-    ap.add_argument("--conf", type=float, default=0.001, help="Confidence threshold")
+    ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
     ap.add_argument("--iou", type=float, default=0.65, help="IoU threshold")
     ap.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     ap.add_argument("--max-images", type=int, default=None, help="Validate on first N images")
     ap.add_argument("--save-json", default=None, help="Optional: path to save detections JSON")
     ap.add_argument("--save-viz-dir", default=None, help="Optional: directory to save annotated images")
+    ap.add_argument(
+        "--viz-name",
+        choices=["file", "id", "prefix"],
+        default="file",
+        help="How to name saved viz images: original file name, COCO image id, or prefix before '.rf.'",
+    )
     return ap.parse_args()
 
 
@@ -61,6 +67,7 @@ def validate_coco(
     images_dir: str | None = None,
     ann_json: str | None = None,
     save_viz_dir: str | None = None,
+    viz_name: str = "file",
 ) -> Dict[str, float]:
     """Run COCO mAP on a folder + annotations.
 
@@ -122,16 +129,28 @@ def validate_coco(
 
         raw = model(x)
         dets = model.decode_forward(raw)[0][0]
-        if dets.numel() == 0:
-            continue
-        # Scale boxes back
-        dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
+        # Scale boxes back if present
+        if dets.numel() > 0:
+            dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
         # Optional visualization save
         if save_viz_dir:
             from leanyolo.utils.viz import draw_detections
             bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            vis = draw_detections(bgr, dets)
-            cv2.imwrite(str(Path(save_viz_dir) / Path(p).name), vis)
+            vis = draw_detections(bgr, dets, class_names=cn)
+            # Choose output filename format
+            if viz_name == "id":
+                out_name = f"{image_id}.jpg"
+            elif viz_name == "prefix":
+                fname = Path(p).name
+                out_name = (fname.split(".rf.")[0] + ".jpg") if ".rf." in fname else fname
+            else:
+                out_name = Path(p).name
+            out_path = Path(save_viz_dir) / out_name
+            ok = cv2.imwrite(str(out_path), vis)
+            if not ok:
+                print(f"[viz] Failed to write: {out_path}")
+            else:
+                print(f"[viz] Saved: {out_path} ({int(dets.shape[0])} dets)")
         # Convert to COCO json
         # COCO expects [x, y, w, h] with category_id being dataset category IDs
         image_id = int(fname_to_id.get(Path(p).name, -1))
@@ -145,18 +164,19 @@ def validate_coco(
                     break
             if image_id == -1:
                 continue
-        for x1, y1, x2, y2, score, cls in dets.cpu().numpy():
-            w, h = x2 - x1, y2 - y1
-            cls = int(cls)
-            cat_id = cat_ids[cls] if cls < len(cat_ids) else cat_ids[-1]
-            results.append(
-                {
-                    "image_id": image_id,
-                    "category_id": int(cat_id),
-                    "bbox": [float(x1), float(y1), float(w), float(h)],
-                    "score": float(score),
-                }
-            )
+        if dets.numel() > 0:
+            for x1, y1, x2, y2, score, cls in dets.cpu().numpy():
+                w, h = x2 - x1, y2 - y1
+                cls = int(cls)
+                cat_id = cat_ids[cls] if cls < len(cat_ids) else cat_ids[-1]
+                results.append(
+                    {
+                        "image_id": image_id,
+                        "category_id": int(cat_id),
+                        "bbox": [float(x1), float(y1), float(w), float(h)],
+                        "score": float(score),
+                    }
+                )
 
     if not results:
         return {"mAP50-95": 0.0}
@@ -196,6 +216,7 @@ def main():
         images_dir=args.images,
         ann_json=args.ann,
         save_viz_dir=args.save_viz_dir,
+        viz_name=args.viz_name,
     )
     print({k: round(v, 5) for k, v in stats.items()})
 
