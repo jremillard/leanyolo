@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 COCO validation script and example pipeline.
 
@@ -11,6 +9,7 @@ This file doubles as copy‑and‑paste friendly sample code for using leanyolo:
 
 Design goal: be easy to read and modify for your own datasets.
 """
+from __future__ import annotations
 
 import argparse
 import json

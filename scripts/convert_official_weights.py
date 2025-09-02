@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Convert PRETRAINED_COCO weights to a plain state_dict checkpoint.
 
 This script instantiates a lean YOLO model via `get_model(weights='PRETRAINED_COCO')`
@@ -18,6 +16,7 @@ Notes:
 - For offline use, place the original weights file in a directory and set
   `LEANYOLO_WEIGHTS_DIR` to that directory; filenames should match the registry.
 """
+from __future__ import annotations
 
 import argparse
 from pathlib import Path

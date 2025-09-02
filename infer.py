@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Inference script and example pipeline.
 
@@ -9,6 +7,7 @@ This script is designed to be copied and tweaked:
 - Decodes detections, rescales back, and writes visualization images
 - Uses PyTorch-native `get_model` API (no YAML)
 """
+from __future__ import annotations
 
 import argparse
 import os

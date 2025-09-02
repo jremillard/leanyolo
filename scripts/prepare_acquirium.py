@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Prepare the Aquarium dataset for training (Windows-friendly, no symlinks).
 
 This script unzips a Kaggle Aquarium dataset archive and arranges it into a
@@ -24,6 +22,7 @@ Notes:
   - Existing destination files are overwritten when --clean is used; otherwise,
     only missing files are copied.
 """
+from __future__ import annotations
 
 import argparse
 import json

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Debug micro-overfit on a single image with live viz and loss curves.
 
 Usage (Aquarium example):
@@ -20,12 +18,12 @@ This script:
 - Every K steps saves an annotated visualization and logs loss values
 - Plots loss curves to save_dir/loss_curve.png
 """
+from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import cv2
 import torch

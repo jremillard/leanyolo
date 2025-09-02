@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Transfer learning example: fine‑tune YOLOv10 on the Aquarium dataset.
 
@@ -8,6 +6,7 @@ This file was previously named `transfer_aquarium.py`. It has been renamed
 to emphasize its role as a generic transfer‑learning example you can copy for
 other datasets.
 """
+from __future__ import annotations
 
 # NOTE: this file mirrors scripts/transfer_aquarium.py content at rename time.
 # If you enhance one, mirror changes in the other history if needed.
@@ -20,12 +19,8 @@ import os
 import sys
 import time
 from datetime import datetime
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
-
-# Ensure repository root is on sys.path when running as a script from scripts/
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+from typing import Dict, List, Tuple
 
 import cv2
 import torch

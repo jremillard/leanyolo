@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """
 Minimal training script (baseline) and example usage.
 
@@ -11,16 +9,13 @@ adapt it to your needs. It shows how to:
 - Train with a simple loss and evaluate mAP each epoch
 - Save per-epoch checkpoints you can later load
 """
+from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
-
-# Ensure repository root is on sys.path when running as a script from scripts/
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+from typing import Dict, List
 
 import torch
 from torch.utils.data import DataLoader

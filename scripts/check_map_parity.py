@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Compare lean YOLOv10 COCO mAP against the official repo's reported value.
 
 This script reads the target mAP50-95 from yolov10-official/logs/<model>.csv and
@@ -20,10 +18,10 @@ Notes
 - Uses default weight loading (downloads allowed) for the lean model.
 - For speed, this runs a full-val check; use val.py with --max-images for quick sanity.
 """
+from __future__ import annotations
 
 import argparse
 import csv
-import os
 from pathlib import Path
 
 from val import validate_coco

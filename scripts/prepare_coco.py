@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Download COCO val2017 and optionally create a small sanity subset.
 
 Examples
@@ -10,6 +8,7 @@ Examples
 - Download and build a 50-image sanity subset:
   ./scripts/prepare_coco.py --root data/coco --download --sanity 50 --sanity-name coco-sanity50
 """
+from __future__ import annotations
 
 import argparse
 import json

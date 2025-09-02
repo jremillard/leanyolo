@@ -18,6 +18,19 @@ Next improvements
 - Fix run folder naming to reflect actual model variant consistently.
 - Optional eval‑phase progress logging (every K images) for transparency during COCOeval.
 
+Linter findings (major/high‑value)
+- Narrow broad exception handling (W0718): leanyolo/utils/weights.py, leanyolo/utils/remap.py. Replace generic Exception with specific exceptions and handle/report accordingly.
+- Complexity hotspots in remapping code: leanyolo/utils/remap.py triggers too many branches/returns/nested blocks (R0911/R0912/R1702) and large local variable counts. Consider splitting into focused helpers with unit tests.
+- Data loader complexity: leanyolo/data/coco_simple.py has too many locals (R0914). Refactor long __getitem__ into smaller helpers (decode_anns, letterbox_boxes) with docstrings.
+- Ambiguous variable name (E741): leanyolo/models/yolov10/postprocess.py uses `l` for left distance. Rename to `left` (and `right`, `top`, `bottom`) to reduce confusion.
+ 
+- Docstrings: many public modules/classes/functions lack docstrings. Add brief docstrings for public APIs and core utilities.
+
+Scripts lint highlights
+ 
+- Broad exceptions in scripts/update_dog_viz.py; narrow exception types and log context.
+- Long lines and large functions in scripts/transfer_learn_aquarium.py and scripts/train.py; consider minor refactors for readability.
+
 Backlog
 - Export (ONNX/TorchScript) and quick perf checks for YOLOv10.
 - Optional richer data augmentations (HSV jitter, mosaic) gated behind flags.

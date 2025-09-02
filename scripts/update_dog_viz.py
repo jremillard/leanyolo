@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Update the classic YOLO dog image visualization in the repo root.
 
 This script:
@@ -17,9 +15,7 @@ Notes:
 - Default model is yolov10s with official weights. Change MODEL below if desired.
 - We set a reasonable confidence threshold to avoid clutter.
 """
-
-import os
-import sys
+from __future__ import annotations
 import urllib.request
 from pathlib import Path
 
