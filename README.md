@@ -102,7 +102,7 @@ Weight loading notes
 CLI entrypoints (copy/paste friendly)
 - `infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
 - `val.py`: COCO validation (downloads val2017 on demand) and JSON export
-- `train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
+- `scripts/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
 
 These scripts are intentionally simple and serve as example code. Feel free to
 copy/paste and adapt them for your own datasets and pipelines.
@@ -189,10 +189,10 @@ MIT License — see `LICENSE` for details.
 
 Train YOLOv10 on the Kaggle Aquarium dataset (COCO-style):
 
-1) Download and prepare dataset (requires Kaggle API or a local zip):
+1) Prepare dataset from local zip (Windows‑friendly; no symlinks):
 
 ```
-./.venv/bin/python scripts/download_aquarium.py --root data/aquarium --zip data/AquariumDataset.zip
+./.venv/bin/python scripts/prepare_acquirium.py --root data/aquarium --zip data/AquariumDataset.zip --clean
 ```
 
 This prepares:
@@ -207,7 +207,7 @@ data/aquarium/
 2) Train with basic transfer learning (freeze backbone/neck, reset head):
 
 ```
-./.venv/bin/python train.py \
+./.venv/bin/python scripts/train.py \
   --train-images data/aquarium/images/train \
   --train-ann data/aquarium/train.json \
   --val-images data/aquarium/images/val \

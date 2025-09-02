@@ -9,7 +9,12 @@ leanyolo/
     data/{dataset.py, transforms.py, collate.py}
     utils/{metrics.py, box_ops.py, losses.py, viz.py}
     tests/{test_*.py, fidelity/}
-  train.py  val.py  infer.py  export.py  requirements.txt
+  scripts/
+    train.py  (baseline trainer)
+    transfer_learn_aquarium.py  (example transfer learning script)
+    prepare_coco.py  prepare_acquirium.py  ...
+  runs/  (outputs: logs, checkpoints, visualizations)
+  val.py  infer.py  export.py  requirements.txt
 ```
 - YOLOv10-only: backbone, neck, head, and end-to-end model.
 - No YAML configs; prefer Python constructors and CLI flags.
