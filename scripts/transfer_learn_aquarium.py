@@ -15,6 +15,7 @@ other datasets.
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -29,7 +30,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import cv2
 import torch
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
@@ -167,17 +168,23 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--model", default="yolov10s", choices=["yolov10n","yolov10s","yolov10m","yolov10b","yolov10l","yolov10x"])
     p.add_argument("--weights", default="PRETRAINED_COCO")
+    # Transfer defaults (best practices): freeze backbone/neck, reset head
     p.add_argument("--freeze-backbone", dest="freeze_backbone", action="store_true")
     p.add_argument("--no-freeze-backbone", dest="freeze_backbone", action="store_false")
     p.add_argument("--head-reset", dest="head_reset", action="store_true")
     p.add_argument("--no-head-reset", dest="head_reset", action="store_false")
+    p.add_argument("--unfreeze-epoch", type=int, default=5, help="Epoch to unfreeze backbone/neck (0=keep frozen)")
+    p.add_argument("--bb-lr-mult", type=float, default=0.1, help="Backbone/neck learning rate multiplier after unfreeze")
     p.add_argument("--epochs", type=int, default=20)
     p.add_argument("--batch-size", type=int, default=16)
     p.add_argument("--workers", type=int, default=2)
     p.add_argument("--lr", type=float, default=5e-4)
-    p.add_argument("--weight-decay", type=float, default=0.01)
+    p.add_argument("--weight-decay", type=float, default=5e-4)
     p.add_argument("--device", default="cuda")
-    p.add_argument("--amp", action="store_true")
+    # AMP enabled by default on CUDA; disable via --no-amp
+    p.add_argument("--amp", dest="amp", action="store_true")
+    p.add_argument("--no-amp", dest="amp", action="store_false")
+    p.add_argument("--warmup-epochs", type=int, default=3, help="Linear LR warmup epochs")
     p.add_argument("--grad-clip", type=float, default=1.0)
     p.add_argument("--eval-conf", type=float, default=0.25)
     p.add_argument("--eval-iou", type=float, default=0.65)
@@ -189,7 +196,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--save-dir", default="runs/transfer/aquarium")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--no-tqdm", action="store_true")
-    p.set_defaults(freeze_backbone=True, head_reset=True)
+    p.set_defaults(freeze_backbone=True, head_reset=True, amp=True)
     return p.parse_args()
 
 
@@ -267,6 +274,36 @@ def save_train_viz(*, save_dir: Path, step: int, imgs: torch.Tensor, dets_batche
     return out_path if ok else None
 
 
+def _random_augment_batch(x: torch.Tensor, targets: List[Dict[str, torch.Tensor]], p_hflip: float = 0.5, p_bc: float = 0.5) -> None:
+    """In-place light augmentations on letterboxed batch NCHW, boxes xyxy in same space.
+
+    - Random horizontal flip
+    - Random brightness/contrast jitter
+    """
+    if x.ndim != 4:
+        return
+    B, C, H, W = x.shape
+    device = x.device
+    for i in range(B):
+        # Horizontal flip
+        if torch.rand((), device=device).item() < p_hflip and targets[i]["boxes"].numel() > 0:
+            # x[i] is CHW; flip width dimension (2)
+            x[i] = torch.flip(x[i], dims=[2])
+            b = targets[i]["boxes"]
+            x1 = b[:, 0].clone()
+            x2 = b[:, 2].clone()
+            b[:, 0] = W - x2
+            b[:, 2] = W - x1
+            targets[i]["boxes"] = b
+        # Brightness/contrast
+        if torch.rand((), device=device).item() < p_bc:
+            alpha = (0.8 + 0.4 * torch.rand((), device=device)).item()  # [0.8,1.2]
+            beta = (torch.rand((), device=device).item() * 32.0 - 16.0)  # [-16,16]
+            xi = x[i] * alpha + beta
+            xi.clamp_(0.0, 255.0)
+            x[i] = xi
+
+
 def main() -> None:
     args = parse_args()
     start_wall = time.time()
@@ -317,8 +354,35 @@ def main() -> None:
     num_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"TRANSFER: freeze_backbone={args.freeze_backbone} | head_reset={args.head_reset} | params={num_params:,} | trainable={num_trainable:,}")
 
-    optim = AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=args.weight_decay)
-    sched = CosineAnnealingLR(optim, T_max=max(1, args.epochs))
+    # Build optimizer with param groups for head vs backbone+neck
+    bb_params = list(model.backbone.parameters()) + list(model.neck.parameters())
+    head_params = list(model.head.parameters())
+    # Ensure frozen at init if requested
+    if args.freeze_backbone:
+        for p in bb_params:
+            p.requires_grad_(False)
+    if args.head_reset:
+        for p in head_params:
+            p.requires_grad_(True)
+    optim = AdamW(
+        [
+            {"params": head_params, "lr": args.lr},
+            {"params": bb_params, "lr": args.lr * args.bb_lr_mult},
+        ],
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
+    # Warmup + cosine schedule as a single LambdaLR
+    E = max(1, args.epochs)
+    WU = max(0, min(args.warmup_epochs, E))
+    def lr_lambda(epoch: int) -> float:
+        # epoch is 0-indexed
+        if WU > 0 and epoch < WU:
+            return float(epoch + 1) / float(WU)
+        # cosine over remaining epochs [WU, E)
+        t = (epoch - WU) / max(1, (E - WU))
+        return 0.5 * (1.0 + math.cos(math.pi * t))
+    sched = LambdaLR(optim, lr_lambda=lr_lambda)
     scaler = torch.cuda.amp.GradScaler(enabled=(args.amp and device.type == "cuda"))
 
     steps_seen = 0
@@ -331,6 +395,8 @@ def main() -> None:
         for i, (x, targets) in iterator:
             x = x.to(device, non_blocking=True)
             targets_dev = [{"boxes": t["boxes"].to(device, non_blocking=True), "labels": t["labels"].to(device, non_blocking=True)} for t in targets]
+            # Light augmentations on the fly (letterboxed space)
+            _random_augment_batch(x, targets_dev)
             with torch.cuda.amp.autocast(enabled=(args.amp and device.type == "cuda")):
                 raw = model(x)
                 loss_dict = detection_loss_v10(raw, targets_dev, num_classes=len(class_names))
@@ -367,6 +433,12 @@ def main() -> None:
                 if saved is not None:
                     logger.info(f"[viz] saved: {saved}")
         sched.step()
+        # Optional gradual unfreeze
+        if args.freeze_backbone and args.unfreeze_epoch > 0 and (epoch + 1) == args.unfreeze_epoch:
+            for p in bb_params:
+                p.requires_grad_(True)
+            # Nothing else needed; optimizer already has the params; grads will flow next step
+            logger.info(f"UNFREEZE: backbone+neck at epoch {epoch+1}; bb_lr_mult={args.bb_lr_mult}")
         avg_epoch = {k: running[k] / max(1, nb) for k in running.keys()}
         lr0 = optim.param_groups[0].get("lr", args.lr)
         epoch_dt = time.perf_counter() - epoch_t0
@@ -397,4 +469,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
