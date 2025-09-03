@@ -86,8 +86,7 @@ def run_fidelity_for_variant(model_name: str) -> None:
     import sys
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     candidates = [
-        os.path.join(repo_root, "references", "yolov10", "official_repo"),
-        os.path.join(repo_root, "yolov10-official"),
+        os.path.join(repo_root, "references", "yolov10", "THU-MIG.yoloe"),
     ]
     for off in candidates:
         if os.path.isdir(off) and off not in sys.path:

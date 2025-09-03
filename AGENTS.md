@@ -60,5 +60,5 @@ leanyolo/
 ## References Directory
 - Path: `references/`
 - Papers: `references/<yolo_version>/<paper_id>/data` with TeX/PDF/HTML saved and TeX extracted.
-- Official repos: `references/yolov10/official_repo` (auto-cloned by `download_references`).
+- Official repo: `references/yolov10/THU-MIG.yoloe` (cloned from https://github.com/THU-MIG/yoloe)
 - Re-generate or verify: `./.venv/bin/python scripts/download_references.py` or `--verify-only`.

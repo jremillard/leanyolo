@@ -7,8 +7,7 @@ def test_neck_feature_shapes_match_official():
     import sys, os
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     candidates = [
-        os.path.join(repo_root, "references", "yolov10", "official_repo"),
-        os.path.join(repo_root, "yolov10-official"),
+        os.path.join(repo_root, "references", "yolov10", "THU-MIG.yoloe"),
     ]
     for p in candidates:
         if os.path.isdir(p):

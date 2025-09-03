@@ -28,8 +28,7 @@ def _repo_root() -> str:
 def _add_official_to_path() -> None:
     root = _repo_root()
     candidates = [
-        os.path.join(root, "references", "yolov10", "official_repo"),
-        os.path.join(root, "yolov10-official"),
+        os.path.join(root, "references", "yolov10", "THU-MIG.yoloe"),
     ]
     for off in candidates:
         if os.path.isdir(off) and off not in os.sys.path:

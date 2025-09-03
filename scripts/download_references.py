@@ -6,7 +6,7 @@ What it does:
 - Unpacks TeX tarballs and organizes everything as:
   ``references/<yolo_name>/<paper_id>/data``
 - Clones official YOLOv10 repository into:
-  ``references/yolov10/official_repo``
+  ``references/yolov10/THU-MIG.yoloe``
 - Verifies that the set of YOLO models matches the README "References" table.
 - Verifies that TeX sources are extracted and PDFs/HTML are present when TeX is unavailable.
 - Verifies the presence of the official YOLOv10 repository.
@@ -228,16 +228,20 @@ def parse_readme_models(readme_path: Path) -> List[str]:
 
 
 def _clone_official_repos(out_dir: Path) -> None:
-    """Clone official repos we depend on (currently YOLOv10)."""
-    y10_dir = out_dir / "yolov10" / "official_repo"
-    if not y10_dir.exists():
-        y10_dir.parent.mkdir(parents=True, exist_ok=True)
-        url = "https://github.com/THU-MIG/yolov10.git"
+    """Clone official repo under references/yolov10/THU-MIG.yoloe only."""
+    # THU-MIG/yoloe -> references/yolov10/THU-MIG.yoloe
+    yoloe_dir = out_dir / "yolov10" / "THU-MIG.yoloe"
+    if not yoloe_dir.exists():
+        yoloe_dir.parent.mkdir(parents=True, exist_ok=True)
         try:
-            subprocess.check_call(["git", "clone", "--depth", "1", url, str(y10_dir)])
-            print(f"[yolov10] official repo cloned -> {y10_dir}")
+            subprocess.check_call([
+                "git", "clone", "--depth", "1",
+                "https://github.com/THU-MIG/yoloe.git",
+                str(yoloe_dir),
+            ])
+            print(f"[yolov10] related repo cloned -> {yoloe_dir}")
         except Exception as e:
-            print(f"[yolov10] failed to clone official repo: {e}")
+            print(f"[yoloe] failed to clone repo: {e}")
 
 
 def verify_against_readme(out_dir: Path, repo_root: Path) -> Tuple[bool, str]:
@@ -295,8 +299,8 @@ def verify_against_readme(out_dir: Path, repo_root: Path) -> Tuple[bool, str]:
             report_lines.append(f"{model}: no paper_id subdirectory found")
             continue
         for sub in subdirs:
-            if sub.name == "official_repo":
-                # This is a repository clone, not a paper_id; skip file checks here.
+            # Skip repository clones (identified by presence of a .git directory)
+            if (sub / ".git").exists():
                 continue
             data_dir = sub / "data"
             if not data_dir.exists():
@@ -376,11 +380,16 @@ def verify_against_readme(out_dir: Path, repo_root: Path) -> Tuple[bool, str]:
                     report_lines.append(f"{model}: error reading HTML for validation: {e}")
 
     # Verify official YOLOv10 repo presence and a key file
-    y10_repo = out_dir / "yolov10" / "official_repo"
-    key_file = y10_repo / "ultralytics" / "cfg" / "models" / "v10" / "yolov10s.yaml"
+    # Verify THU-MIG.yoloe presence (requested path)
+    yoloe_repo = out_dir / "yolov10" / "THU-MIG.yoloe"
+    if not yoloe_repo.exists():
+        ok = False
+        report_lines.append(f"THU-MIG.yoloe repo missing at {yoloe_repo}")
+    # Sanity check: expected YOLOv10 YAML exists within THU-MIG.yoloe
+    key_file = yoloe_repo / "ultralytics" / "cfg" / "models" / "v10" / "yolov10s.yaml"
     if not key_file.exists():
         ok = False
-        report_lines.append(f"yolov10 official repo missing or incomplete at {y10_repo}")
+        report_lines.append(f"THU-MIG.yoloe missing expected YAML at {key_file}")
 
     if not report_lines:
         report_lines.append("All good: README models matched and files verified.")

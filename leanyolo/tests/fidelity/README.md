@@ -39,7 +39,7 @@ Official reference extraction hooks use stable indices from the YAML graphs: bac
 
 Prerequisites:
 - Install PyTorch and the project requirements.
-- Ensure the official repo is available at `references/yolov10/official_repo`:
+- Ensure the official repo is available at `references/yolov10/THU-MIG.yoloe`:
   - Run: `./.venv/bin/python scripts/download_references.py` (auto-clones the official repo and downloads papers), or clone manually.
 
 Command:
