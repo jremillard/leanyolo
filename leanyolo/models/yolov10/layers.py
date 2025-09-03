@@ -2,21 +2,34 @@ from __future__ import annotations
 
 """Core YOLOv10 building blocks used by the backbone and neck.
 
-These modules are small, composable layers that the YOLOv10 architecture uses to
-extract features from images and to fuse information across scales. If you have
-seen a few convolutional neural networks (CNNs) in an introductory ML course,
-you can think of these as slightly fancier conv blocks with residual connections
-and attention sprinkled in where helpful.
+This file implements the small, composable modules that make up the backbone and
+neck in the lean YOLOv10 models. The designs follow the intent of the YOLOv10
+paper ("YOLOv10: Real-Time End-to-End Object Detection"), which emphasizes:
 
-Notes for readers
-- Convolution (Conv) discovers local patterns like edges or textures.
-- Residual connections (adding the input back) help gradients flow and stabilize training.
-- Depthwise/grouped convs are efficiency tricks: fewer parameters and FLOPs.
-- SPPF (Spatial Pyramid Pooling – Fast) collects information at multiple scales.
-- PSA (Partial Self-Attention) adds a lightweight transformer-style attention.
+- Efficiency-driven blocks: compact inverted blocks (CIB) and spatial–channel
+  decoupled downsampling (SCDown) to reduce FLOPs without hurting accuracy.
+- Accuracy-driven context: a partial self-attention (PSA) module to inject
+  lightweight global context in later stages where features are more semantic.
+- Standard multi-scale fusion: keep proven components like C2f and SPPF for
+  rich feature reuse and multi-scale context.
 
-For background and references, see the README’s paper links for YOLOv10 and
-related YOLO families.
+If you’ve seen basic CNNs, you can think of these as familiar conv blocks with
+residual connections, some efficient depthwise tricks, and a small attention
+layer where it yields the most benefit.
+
+Legend
+- B, C, H, W: batch, channels, height, width
+- DWConv: depthwise conv (groups=channels)
+- PWConv: pointwise (1x1) conv
+- BN+SiLU: BatchNorm + SiLU activation
+
+Reference mapping to the paper
+- SCDown here corresponds to the "spatial–channel decoupled downsampling"
+  optimization described in the paper’s efficiency design.
+- CIB and C2fCIB implement the compact inverted block and its use inside a C2f
+  (split-transform-merge) scaffold.
+- PSA implements the partial self-attention block the paper places at deeper
+  stages to add global context at low cost.
 """
 
 import math
@@ -36,16 +49,26 @@ def _autopad(k: int, p: int | None = None) -> int:
 
 
 class Conv(nn.Module):
-    """Standard 2D convolution followed by BatchNorm and SiLU activation.
+    """Conv → BN → SiLU convenience block.
 
-    Args:
-        c_in: Input channels.
-        c_out: Output channels.
-        k: Kernel size (e.g., 1 or 3).
-        s: Stride (e.g., 1 or 2 for downsampling).
-        p: Explicit padding; if None we use "same" padding for odd kernels.
-        g: Groups for grouped/depthwise conv (g=c_out implies depthwise).
-        act: Whether to apply a SiLU nonlinearity; if False, uses Identity.
+    Input/Output
+    - x: (B, c_in, H, W)
+    - y: (B, c_out, H/stride, W/stride)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - k: kernel size (1 or 3 are common)
+    - s: stride (1 keeps size, 2 downsamples)
+    - p: padding (None gives "same" for odd k)
+    - g: groups (g=c_out means depthwise)
+    - act: apply SiLU if True, else Identity
+
+    ASCII
+        [C_in,H,W]
+           │ Conv(k,s,g)
+           ▼
+        [C_out,H',W'] → BN → SiLU
     """
     def __init__(self, *, c_in: int, c_out: int, k: int, s: int, p: int | None, g: int, act: bool):
         super().__init__()
@@ -59,10 +82,14 @@ class Conv(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    """A simple residual bottleneck: two Conv layers with optional skip-add.
+    """Residual bottleneck: Conv(3x3) → Conv(3x3) with optional skip.
 
-    Reduces channels internally then restores them. If `shortcut` is True and
-    shapes match, the input is added to the output (residual connection).
+    Purpose: stabilize training and increase capacity with little cost.
+
+    ASCII
+        x ──┐
+            ├─ Conv3×3 → Conv3×3 ──┐
+        ────┘            (add if shapes match) ─▶ y
     """
     def __init__(self, *, c_in: int, c_out: int, shortcut: bool, g: int, e: float):
         super().__init__()
@@ -77,12 +104,16 @@ class Bottleneck(nn.Module):
 
 
 class C2f(nn.Module):
-    """C2f: split-transform-merge block with multiple bottlenecks.
+    """C2f: split → transform (stack) → concat → fuse.
 
-    Idea: split features into two parts, process one part through a small stack
-    of bottlenecks, then concatenate everything and fuse with a 1x1 conv. This
-    pattern captures richer interactions at low cost compared to a single big
-    conv, and is widely used in modern YOLO families.
+    Rationale: splitting channels allows a cheap path (skip) and an expressive
+    path (n small bottlenecks). Concatenation reuses intermediate features.
+
+    ASCII
+        x → Conv1×1 → [y1 | y2]  (split channels)
+                       │
+                       ├─ Bottleneck → Bottleneck → … (n×) → y2'
+        concat([y1, y2, y2', …]) → Conv1×1 → out
     """
 
     def __init__(self, *, c_in: int, c_out: int, n: int, shortcut: bool, g: int, e: float):
@@ -103,11 +134,20 @@ class C2f(nn.Module):
 
 
 class SPPF(nn.Module):
-    """Spatial Pyramid Pooling (fast) block.
+    """Spatial Pyramid Pooling – Fast (multi-scale context).
 
-    Repeated max-pooling at different receptive fields captures multi-scale
-    context without increasing feature map size. Concatenated outputs are
-    mixed with a 1x1 conv.
+    Idea: repeatedly apply a k×k max-pool (stride 1) to gather context at
+    increasing receptive fields, then concatenate with the original and fuse.
+
+    ASCII
+        x → Conv1×1 → x0
+               │  MaxPool(k)
+               ├─ x1
+               │  MaxPool(k)
+               ├─ x2
+               │  MaxPool(k)
+               └─ x3
+        concat([x0,x1,x2,x3]) → Conv1×1 → out
     """
     def __init__(self, *, c_in: int, c_out: int, k: int):
         super().__init__()
@@ -125,9 +165,9 @@ class SPPF(nn.Module):
 
 
 class UpSample(nn.Module):
-    """Nearest-neighbor upsampling.
+    """Nearest-neighbor upsampling for top-down neck fusion.
 
-    Used in the top-down path of the neck to match spatial resolutions.
+    Simple and fast; doubles resolution when ``scale_factor=2``.
     """
     def __init__(self, *, scale_factor: float):
         super().__init__()
@@ -138,11 +178,15 @@ class UpSample(nn.Module):
 
 
 class CIB(nn.Module):
-    """Conv-Inverted-Block (with optional long-kernel depthwise branch).
+    """Compact Inverted Block (paper’s efficiency-driven block).
 
-    This is a compute-friendly block used in certain YOLOv10 configurations. If
-    `lk` is True, it enables a depthwise 7x7 branch (RepVGGDW) for larger
-    receptive fields.
+    Design: use cheap depthwise spatial mixing and 1×1 pointwise channel mixing.
+    If ``lk=True`` we add a long-kernel depthwise branch (7×7 + 3×3) in the
+    style of RepVGGDW for larger receptive fields.
+
+    ASCII (simplified)
+        x → DWConv3×3 → PWConv1×1 → [DWConv7×7 + DWConv3×3] → PWConv1×1 → DWConv3×3 → y
+        (optional skip-add if shapes match)
     """
     def __init__(self, *, c_in: int, c_out: int, shortcut: bool, e: float, lk: bool):
         super().__init__()
@@ -175,9 +219,10 @@ class CIB(nn.Module):
 
 
 class C2fCIB(nn.Module):
-    """C2f variant where inner blocks are CIB instead of Bottleneck.
+    """C2f variant that uses CIB blocks inside (accuracy/efficiency balance).
 
-    Enables optional long-kernel depthwise branches within the block.
+    Same split-transform-merge idea as :class:`C2f`, but each inner block is a
+    :class:`CIB`, optionally with long-kernel depthwise branches.
     """
     def __init__(self, *, c_in: int, c_out: int, n: int, shortcut: bool, lk: bool, e: float):
         super().__init__()
@@ -197,11 +242,17 @@ class C2fCIB(nn.Module):
 
 
 class Attention(nn.Module):
-    """Lightweight multi-head self-attention over spatial features.
+    """Lightweight multi-head self-attention on spatial tokens.
 
-    Designed to be small enough for detection backbones. It splits channels into
-    heads, computes dot-product attention, and projects back to the original
-    dimension. A small positional embedding (pe) branch adds locality.
+    Treat the H×W grid as a sequence of tokens per head. Compute
+    q·k^T/√d → softmax → v·attn, add a shallow positional branch, then project.
+
+    Shapes
+    - x: (B, C, H, W) → n=H·W tokens per head
+    - q,k: (B, heads, d_k, n), v: (B, heads, d_v, n)
+
+    Notes: Kept intentionally small (few heads, 1×1 conv projections) to fit
+    real-time budgets.
     """
     def __init__(self, *, dim: int, num_heads: int, attn_ratio: float):
         super().__init__()
@@ -230,11 +281,17 @@ class Attention(nn.Module):
 
 
 class PSA(nn.Module):
-    """Partial Self-Attention block with a small feed-forward network.
+    """Partial Self-Attention (paper’s accuracy-driven context module).
 
-    Splits channels in half, applies attention + MLP to one half, then fuses
-    back with a 1x1 conv. This provides a global context signal without the
-    cost of full attention everywhere. Used at the end of the backbone.
+    Split channels in half: leave one half as a local path, apply
+    lightweight attention + MLP to the other half, then fuse and project.
+    This injects global context at low cost (only half the channels attend).
+
+    ASCII
+        x → Conv1×1 → [a | b]
+                 b ← b + Attention(b)
+                 b ← b + MLP(b)
+        concat([a,b]) → Conv1×1 → out
     """
     def __init__(self, *, c_in: int, c_out: int, e: float):
         super().__init__()
@@ -256,10 +313,17 @@ class PSA(nn.Module):
 
 
 class SCDown(nn.Module):
-    """Stride-Conv Downsample: 1x1 conv then depthwise stride-k conv.
+    """Spatial–Channel decoupled downsampling (paper’s efficiency idea).
 
-    The 1x1 conv expands to the target channels; the depthwise conv with stride
-    performs the spatial downsampling efficiently.
+    Replace a single costly 3×3 stride-2 standard conv with:
+    - 1×1 PWConv to set channels, then
+    - 3×3 DWConv with stride s for spatial reduction.
+
+    This reduces parameters/FLOPs while retaining information.
+
+    ASCII
+        x → PWConv1×1 (C_in→C_out)
+            → DWConv3×3 (stride=s) → out
     """
     def __init__(self, *, c_in: int, c_out: int, k: int, s: int):
         super().__init__()
