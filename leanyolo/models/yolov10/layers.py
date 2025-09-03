@@ -62,12 +62,6 @@ class Conv(nn.Module):
     What it does
     - Applies a 2D conv with optional groups, then BN, then SiLU (or Identity).
 
-    Inputs
-    - x: Tensor of shape (B, c_in, H, W)
-
-    Outputs
-    - y: Tensor of shape (B, c_out, H', W'), with H' and W' scaled by stride.
-
     Args
     - c_in: input channels
     - c_out: output channels
@@ -108,12 +102,6 @@ class Bottleneck(nn.Module):
     - Reduces channels (if e<1), processes with Conv blocks, and optionally
       adds the input back if shapes match.
 
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H, W)
-
     Args
     - c_in: input channels
     - c_out: output channels
@@ -152,12 +140,6 @@ class C2f(nn.Module):
     What it does
     - Splits channels, runs a stack of Bottlenecks on one part, concatenates
       all intermediates, then fuses with a 1×1 conv.
-
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H, W)
 
     Args
     - c_in: input channels
@@ -205,12 +187,6 @@ class SPPF(nn.Module):
     - Applies a 1×1 conv, then three successive max‑pools to create pyramids,
       concatenates them, and fuses with a 1×1 conv.
 
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H, W)
-
     Args
     - c_in: input channels
     - c_out: output channels
@@ -253,12 +229,6 @@ class UpSample(nn.Module):
     What it does
     - Uses interpolate with mode="nearest" by a given scale factor.
 
-    Inputs
-    - x: (B, C, H, W)
-
-    Outputs
-    - y: (B, C, H·scale, W·scale)
-
     Args
     - scale_factor: upsample factor (e.g., 2.0)
     """
@@ -285,12 +255,6 @@ class CIB(nn.Module):
     What it does
     - Applies DWConv→PWConv, then either a RepVGGDW (7×7+3×3 DW) or DWConv,
       followed by PWConv and a final DWConv; residual add when shapes match.
-
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H, W)
 
     Args
     - c_in: input channels
@@ -350,12 +314,6 @@ class C2fCIB(nn.Module):
     What it does
     - Same topology as C2f, but inner modules are CIB (optionally long‑kernel).
 
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H, W)
-
     Args
     - c_in, c_out, n, shortcut, e: as in C2f
     - lk: enable long‑kernel depthwise branches in CIB
@@ -390,12 +348,6 @@ class Attention(nn.Module):
     What it does
     - Projects to q/k/v with 1×1 conv, computes attention per head, aggregates
       values, adds a depthwise 3×3 positional term, then projects back.
-
-    Inputs
-    - x: (B, C, H, W)
-
-    Outputs
-    - y: (B, C, H, W)
 
     Args
     - dim: channel dimension
@@ -443,12 +395,6 @@ class PSA(nn.Module):
     - Split channels with 1×1 conv, apply Attention + MLP to the second half,
       concatenate halves, and fuse.
 
-    Inputs
-    - x: (B, c_in, H, W) with c_in == c_out
-
-    Outputs
-    - y: (B, c_out, H, W)
-
     Args
     - c_in: input channels (must equal c_out)
     - c_out: output channels
@@ -492,12 +438,6 @@ class SCDown(nn.Module):
 
     What it does
     - Applies PWConv1×1 (C_in→C_out), then DWConv3×3 with stride s.
-
-    Inputs
-    - x: (B, c_in, H, W)
-
-    Outputs
-    - y: (B, c_out, H/s, W/s)
 
     Args
     - c_in: input channels
