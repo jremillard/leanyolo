@@ -44,7 +44,7 @@ Output format:
 Note
 - These YOLOv10* classes are raw model modules. For inference, wrap
   preprocessing (RGB, letterbox, normalization) and postprocessing (decode,
-  NMS, unletterbox). See infer.py for a reference pipeline.
+  NMS, unletterbox). See tools/infer.py for a reference pipeline.
 """
 
 from typing import List, Sequence

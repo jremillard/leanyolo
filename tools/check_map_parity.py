@@ -24,7 +24,7 @@ import argparse
 import csv
 from pathlib import Path
 
-from val import validate_coco
+from tools.val import validate_coco
 
 
 def parse_args():

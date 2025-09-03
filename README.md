@@ -100,8 +100,8 @@ Weight loading notes
 ## CLI 
 
 CLI entrypoints (copy/paste friendly)
-- `infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
-- `val.py`: COCO validation (downloads val2017 on demand) and JSON export
+- `tools/infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
+- `tools/val.py`: COCO validation (downloads val2017 on demand) and JSON export
 - `tools/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
 - `tools/prepare_acquirium.py`: unzip + arrange Aquarium into COCO layout (Windows‑friendly; no symlinks)
 - `tools/transfer_learn_aquarium.py`: transfer learning example with AMP, warmup+cosine LR, light aug, gradual unfreeze
@@ -251,7 +251,7 @@ Alternate baseline trainer (simple loop), if you prefer:
 Use the best epoch from the log (e.g., epoch035.pt), make sure `--model` matches the trained variant:
 
 ```
-./.venv/bin/python infer.py \
+./.venv/bin/python tools/infer.py \
   --source data/aquarium/images/val \
   --model yolov10m \
   --weights runs/transfer/aquarium_yolov10m_640/epoch035.pt \
@@ -268,7 +268,7 @@ Latest run snapshot (yolov10m, 640, 50 epochs):
 - Smooth loss decline; no obvious overfitting. Consider early‑stopping around best epoch.
 
 ```
-./.venv/bin/python val.py \
+./.venv/bin/python tools/val.py \
   --images data/aquarium/images/val \
   --ann data/aquarium/val.json \
   --model yolov10n \

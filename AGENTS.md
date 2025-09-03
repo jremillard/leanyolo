@@ -15,7 +15,7 @@ leanyolo/
     prepare_coco.py  prepare_acquirium.py  ...
   runs/  (outputs: logs, checkpoints, visualizations)
   references/  (papers + official repos)
-  val.py  infer.py  export.py  requirements.txt
+  requirements.txt
 ```
 - YOLOv10-only: backbone, neck, head, and end-to-end model.
 - No YAML configs; prefer Python constructors and CLI flags.
