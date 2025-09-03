@@ -14,6 +14,7 @@ leanyolo/
     transfer_learn_aquarium.py  (example transfer learning script)
     prepare_coco.py  prepare_acquirium.py  ...
   runs/  (outputs: logs, checkpoints, visualizations)
+  references/  (papers + official repos)
   val.py  infer.py  export.py  requirements.txt
 ```
 - YOLOv10-only: backbone, neck, head, and end-to-end model.
@@ -48,6 +49,16 @@ leanyolo/
 
 ## Security & Configuration Tips
 - Use a single venv: `.venv`; never rely on system Python.
-- Keep `yolov10-official/` (reference repo) as a sibling folder if used; do not vendor it here.
+- Official repos live under `references/` (managed by scripts); do not vendor as top-level folders.
 - Avoid network in tests unless explicitly cached; prefer CPU for parity.
 - Document exact commands/seeds when regenerating references.
+
+## Docs & References Verification
+- When `README.md` is changed (especially the References table), run:
+  - Verify only: `./.venv/bin/python scripts/download_references.py --verify-only`
+
+## References Directory
+- Path: `references/`
+- Papers: `references/<yolo_version>/<paper_id>/data` with TeX/PDF/HTML saved and TeX extracted.
+- Official repos: `references/yolov10/official_repo` (auto-cloned by `download_references`).
+- Re-generate or verify: `./.venv/bin/python scripts/download_references.py` or `--verify-only`.

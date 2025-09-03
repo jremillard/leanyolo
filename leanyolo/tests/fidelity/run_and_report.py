@@ -26,9 +26,14 @@ def _load_lean_with_official_weights(model_name: str):
     # Ensure official repo importable
     import sys
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    off = os.path.join(repo_root, "yolov10-official")
-    if off not in sys.path:
-        sys.path.insert(0, off)
+    candidates = [
+        os.path.join(repo_root, "references", "yolov10", "official_repo"),
+        os.path.join(repo_root, "yolov10-official"),
+    ]
+    for off in candidates:
+        if os.path.isdir(off) and off not in sys.path:
+            sys.path.insert(0, off)
+            break
     import ultralytics.nn.tasks as tasks  # type: ignore
     from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
 

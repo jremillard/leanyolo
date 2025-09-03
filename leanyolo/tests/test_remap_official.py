@@ -10,9 +10,15 @@ from leanyolo.utils.remap import remap_official_yolov10_to_lean
 
 
 def _ensure_official_on_path():
-    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "yolov10-official"))
-    if root not in sys.path:
-        sys.path.insert(0, root)
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    candidates = [
+        os.path.join(repo_root, "references", "yolov10", "official_repo"),
+        os.path.join(repo_root, "yolov10-official"),
+    ]
+    for root in candidates:
+        if os.path.isdir(root) and root not in sys.path:
+            sys.path.insert(0, root)
+            return
 
 
 def _load_official_state_dict(weights_path: str) -> dict:

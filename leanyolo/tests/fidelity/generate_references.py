@@ -27,9 +27,14 @@ def _repo_root() -> str:
 
 def _add_official_to_path() -> None:
     root = _repo_root()
-    off = os.path.join(root, "yolov10-official")
-    if off not in os.sys.path:
-        os.sys.path.insert(0, off)
+    candidates = [
+        os.path.join(root, "references", "yolov10", "official_repo"),
+        os.path.join(root, "yolov10-official"),
+    ]
+    for off in candidates:
+        if os.path.isdir(off) and off not in os.sys.path:
+            os.sys.path.insert(0, off)
+            return
 
 
 def _y10_yaml_for(size: str) -> str:

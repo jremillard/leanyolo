@@ -5,8 +5,16 @@ import pytest
 @pytest.mark.fidelity
 def test_backbone_feature_shapes_match_official():
     # Import official model
-    import sys
-    sys.path.insert(0, 'yolov10-official')
+    import sys, os
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    candidates = [
+        os.path.join(repo_root, "references", "yolov10", "official_repo"),
+        os.path.join(repo_root, "yolov10-official"),
+    ]
+    for p in candidates:
+        if os.path.isdir(p):
+            sys.path.insert(0, p)
+            break
     from ultralytics.nn.tasks import YOLOv10DetectionModel
 
     off = YOLOv10DetectionModel('ultralytics/cfg/models/v10/yolov10s.yaml')

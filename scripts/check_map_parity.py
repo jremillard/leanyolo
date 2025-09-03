@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Compare lean YOLOv10 COCO mAP against the official repo's reported value.
 
-This script reads the target mAP50-95 from yolov10-official/logs/<model>.csv and
+This script reads the target mAP50-95 from references/yolov10/official_repo/logs/<model>.csv (or legacy yolov10-official/logs) and
 then runs leanyolo's COCO evaluation to verify parity within a tolerance.
 
 Usage
-  PYTHONPATH=yolov10-official \
+  PYTHONPATH=references/yolov10/official_repo \
   ./.venv/bin/python scripts/check_map_parity.py \
       --data-root data/coco \
       --model yolov10n \
@@ -14,7 +14,7 @@ Usage
       --tolerance 0.01
 
 Notes
-- Expects the official repo at ./yolov10-official with logs/<model>.csv present.
+- Expects the official repo under ./references/yolov10/official_repo with logs/<model>.csv present (auto-cloned by scripts/download_references.py). Falls back to ./yolov10-official if present.
 - Uses default weight loading (downloads allowed) for the lean model.
 - For speed, this runs a full-val check; use val.py with --max-images for quick sanity.
 """
@@ -38,7 +38,9 @@ def parse_args():
 
 
 def read_official_map(model: str) -> float:
-    csv_path = Path("yolov10-official") / "logs" / f"{model}.csv"
+    csv_path = Path("references/yolov10/official_repo/logs") / f"{model}.csv"
+    if not csv_path.exists():
+        csv_path = Path("yolov10-official/logs") / f"{model}.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"Official logs not found: {csv_path}")
     last_row = None
