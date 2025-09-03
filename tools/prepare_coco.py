@@ -16,6 +16,15 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
+import sys
+from pathlib import Path as _Path
+
+# Ensure repository root is on sys.path so 'leanyolo' is importable when this
+# script is executed from arbitrary working directories (e.g., in containers).
+_repo_root = _Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 from leanyolo.data.coco import ensure_coco_val, list_images
 
 

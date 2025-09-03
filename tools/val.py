@@ -21,6 +21,14 @@ import torch
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
+import sys
+from pathlib import Path as _Path
+
+# Ensure repo root on path for 'leanyolo' imports when run from any CWD
+_repo_root = _Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 from leanyolo.data.coco import ensure_coco_val, load_coco_categories, list_images, coco80_class_names
 from leanyolo.models import get_model
 from leanyolo.utils.box_ops import unletterbox_coords

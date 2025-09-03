@@ -18,6 +18,14 @@ import cv2
 import numpy as np
 import torch
 
+import sys
+from pathlib import Path as _Path
+
+# Ensure repo root on path for 'leanyolo' imports when run from any CWD
+_repo_root = _Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 from leanyolo.models import get_model
 from leanyolo.data.coco import coco80_class_names
 from leanyolo.utils.box_ops import unletterbox_coords
