@@ -15,6 +15,15 @@ from __future__ import annotations
 
 import os
 
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path so 'leanyolo' is importable when this
+# script is run from outside the repo root (e.g., in containers or CI).
+repo_root = Path(__file__).resolve().parents[1]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 from leanyolo.models.registry import list_models, get_model_weights
 
 
@@ -50,4 +59,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
