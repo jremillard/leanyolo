@@ -51,17 +51,30 @@ def _autopad(k: int, p: int | None = None) -> int:
 class Conv(nn.Module):
     """Conv → BN → SiLU convenience block.
 
-    Input/Output
-    - x: (B, c_in, H, W)
-    - y: (B, c_out, H/stride, W/stride)
+    Goal
+    - Provide a common conv+norm+activation building block used throughout
+      the backbone and neck.
+
+    Why it works
+    - BatchNorm stabilizes optimization; SiLU is a smooth nonlinearity that
+      works well in modern CNNs; grouped conv enables efficient depthwise ops.
+
+    What it does
+    - Applies a 2D conv with optional groups, then BN, then SiLU (or Identity).
+
+    Inputs
+    - x: Tensor of shape (B, c_in, H, W)
+
+    Outputs
+    - y: Tensor of shape (B, c_out, H', W'), with H' and W' scaled by stride.
 
     Args
     - c_in: input channels
     - c_out: output channels
-    - k: kernel size (1 or 3 are common)
+    - k: kernel size (e.g., 1 or 3)
     - s: stride (1 keeps size, 2 downsamples)
-    - p: padding (None gives "same" for odd k)
-    - g: groups (g=c_out means depthwise)
+    - p: padding (None → same padding for odd k)
+    - g: groups (g=c_out yields depthwise conv)
     - act: apply SiLU if True, else Identity
 
     ASCII
@@ -82,14 +95,36 @@ class Conv(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    """Residual bottleneck: Conv(3x3) → Conv(3x3) with optional skip.
+    """Residual bottleneck: Conv(3×3) → Conv(3×3) with optional skip.
 
-    Purpose: stabilize training and increase capacity with little cost.
+    Goal
+    - Increase representational capacity while keeping gradients flowing.
+
+    Why it works
+    - Residual connections ease optimization; two small convolutions are
+      efficient and expressive for spatial mixing.
+
+    What it does
+    - Reduces channels (if e<1), processes with Conv blocks, and optionally
+      adds the input back if shapes match.
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - shortcut: enable residual add when c_in==c_out
+    - g: groups for second conv (1 commonly)
+    - e: expansion ratio for hidden channels (0<e≤1)
 
     ASCII
         x ──┐
             ├─ Conv3×3 → Conv3×3 ──┐
-        ────┘            (add if shapes match) ─▶ y
+        ────┘      (add if shapes match) ─▶ y
     """
     def __init__(self, *, c_in: int, c_out: int, shortcut: bool, g: int, e: float):
         super().__init__()
@@ -106,11 +141,34 @@ class Bottleneck(nn.Module):
 class C2f(nn.Module):
     """C2f: split → transform (stack) → concat → fuse.
 
-    Rationale: splitting channels allows a cheap path (skip) and an expressive
-    path (n small bottlenecks). Concatenation reuses intermediate features.
+    Goal
+    - Capture richer features at low cost by splitting channels and reusing
+      intermediate representations.
+
+    Why it works
+    - Provides a shortcut path and a deeper path; concatenation broadens the
+      feature basis without expensive wide convolutions.
+
+    What it does
+    - Splits channels, runs a stack of Bottlenecks on one part, concatenates
+      all intermediates, then fuses with a 1×1 conv.
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - n: number of inner Bottlenecks
+    - shortcut: residual add inside Bottlenecks
+    - g: groups for Bottlenecks
+    - e: expansion ratio for internal channels
 
     ASCII
-        x → Conv1×1 → [y1 | y2]  (split channels)
+        x → Conv1×1 → [y1 | y2]
                        │
                        ├─ Bottleneck → Bottleneck → … (n×) → y2'
         concat([y1, y2, y2', …]) → Conv1×1 → out
@@ -134,10 +192,29 @@ class C2f(nn.Module):
 
 
 class SPPF(nn.Module):
-    """Spatial Pyramid Pooling – Fast (multi-scale context).
+    """Spatial Pyramid Pooling – Fast (multi‑scale context).
 
-    Idea: repeatedly apply a k×k max-pool (stride 1) to gather context at
-    increasing receptive fields, then concatenate with the original and fuse.
+    Goal
+    - Enrich features with multi‑scale context without changing spatial size.
+
+    Why it works
+    - Reusing the same k×k max‑pool repeatedly approximates larger receptive
+      fields and gathers context at different scales cheaply.
+
+    What it does
+    - Applies a 1×1 conv, then three successive max‑pools to create pyramids,
+      concatenates them, and fuses with a 1×1 conv.
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - k: max‑pool kernel size (odd), stride fixed to 1
 
     ASCII
         x → Conv1×1 → x0
@@ -165,9 +242,25 @@ class SPPF(nn.Module):
 
 
 class UpSample(nn.Module):
-    """Nearest-neighbor upsampling for top-down neck fusion.
+    """Nearest‑neighbor upsampling for top‑down neck fusion.
 
-    Simple and fast; doubles resolution when ``scale_factor=2``.
+    Goal
+    - Match spatial resolutions across scales for feature fusion.
+
+    Why it works
+    - Nearest‑neighbor is simple and fast, sufficient before 1×1 fusion convs.
+
+    What it does
+    - Uses interpolate with mode="nearest" by a given scale factor.
+
+    Inputs
+    - x: (B, C, H, W)
+
+    Outputs
+    - y: (B, C, H·scale, W·scale)
+
+    Args
+    - scale_factor: upsample factor (e.g., 2.0)
     """
     def __init__(self, *, scale_factor: float):
         super().__init__()
@@ -178,24 +271,49 @@ class UpSample(nn.Module):
 
 
 class CIB(nn.Module):
-    """Compact Inverted Block (paper’s efficiency-driven block).
+    """Compact Inverted Block (paper’s efficiency‑driven block).
 
-    Design: use cheap depthwise spatial mixing and 1×1 pointwise channel mixing.
-    If ``lk=True`` we add a long-kernel depthwise branch (7×7 + 3×3) in the
-    style of RepVGGDW for larger receptive fields.
+    Goal
+    - Reduce compute by preferring depthwise spatial mixing and inexpensive
+      pointwise channel mixing; optionally expand receptive field with a long‑
+      kernel branch.
+
+    Why it works
+    - Depthwise separable convs drastically cut FLOPs/params; long‑kernel DW
+      adds context affordably when enabled.
+
+    What it does
+    - Applies DWConv→PWConv, then either a RepVGGDW (7×7+3×3 DW) or DWConv,
+      followed by PWConv and a final DWConv; residual add when shapes match.
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - shortcut: enable residual add when c_in==c_out
+    - e: expansion ratio to internal channels
+    - lk: enable long‑kernel RepVGGDW branch if True
 
     ASCII (simplified)
-        x → DWConv3×3 → PWConv1×1 → [DWConv7×7 + DWConv3×3] → PWConv1×1 → DWConv3×3 → y
-        (optional skip-add if shapes match)
+        x → DWConv3×3 → PWConv1×1 → [DWConv7×7 + DWConv3×3] or DWConv3×3
+            → PWConv1×1 → DWConv3×3 → (+x) → y
     """
     def __init__(self, *, c_in: int, c_out: int, shortcut: bool, e: float, lk: bool):
         super().__init__()
         c_hidden = int(c_out * e)
         # Depthwise 3x3
         class RepVGGDW(nn.Module):
+            """Depthwise RepVGG‑style branch (7×7 + 3×3) with SiLU.
+
+            Goal: enlarge receptive field cheaply with depthwise long kernels.
+            """
             def __init__(self, ch: int):
                 super().__init__()
-                # Match Ultralytics RepVGGDW: depthwise 7x7 and 3x3 branches
                 self.conv = Conv(c_in=ch, c_out=ch, k=7, s=1, p=3, g=ch, act=False)
                 self.conv1 = Conv(c_in=ch, c_out=ch, k=3, s=1, p=1, g=ch, act=False)
                 self.act = nn.SiLU()
@@ -219,10 +337,28 @@ class CIB(nn.Module):
 
 
 class C2fCIB(nn.Module):
-    """C2f variant that uses CIB blocks inside (accuracy/efficiency balance).
+    """C2f with CIB inner blocks (accuracy/efficiency balance).
 
-    Same split-transform-merge idea as :class:`C2f`, but each inner block is a
-    :class:`CIB`, optionally with long-kernel depthwise branches.
+    Goal
+    - Combine split‑transform‑merge with compact inverted blocks to trade a bit
+      of capacity for efficiency where analysis finds redundancy.
+
+    Why it works
+    - YOLOv10 uses rank‑guided allocation to place compact blocks where stages
+      are redundant; CIBs reduce cost with minimal accuracy loss.
+
+    What it does
+    - Same topology as C2f, but inner modules are CIB (optionally long‑kernel).
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in, c_out, n, shortcut, e: as in C2f
+    - lk: enable long‑kernel depthwise branches in CIB
     """
     def __init__(self, *, c_in: int, c_out: int, n: int, shortcut: bool, lk: bool, e: float):
         super().__init__()
@@ -242,17 +378,29 @@ class C2fCIB(nn.Module):
 
 
 class Attention(nn.Module):
-    """Lightweight multi-head self-attention on spatial tokens.
+    """Lightweight multi‑head self‑attention on spatial tokens.
 
-    Treat the H×W grid as a sequence of tokens per head. Compute
-    q·k^T/√d → softmax → v·attn, add a shallow positional branch, then project.
+    Goal
+    - Inject global context into deep features at modest cost.
 
-    Shapes
-    - x: (B, C, H, W) → n=H·W tokens per head
-    - q,k: (B, heads, d_k, n), v: (B, heads, d_v, n)
+    Why it works
+    - Treats H×W locations as tokens; attention reweights features based on
+      content similarity while a small positional branch adds locality.
 
-    Notes: Kept intentionally small (few heads, 1×1 conv projections) to fit
-    real-time budgets.
+    What it does
+    - Projects to q/k/v with 1×1 conv, computes attention per head, aggregates
+      values, adds a depthwise 3×3 positional term, then projects back.
+
+    Inputs
+    - x: (B, C, H, W)
+
+    Outputs
+    - y: (B, C, H, W)
+
+    Args
+    - dim: channel dimension
+    - num_heads: number of attention heads
+    - attn_ratio: key dimension ratio relative to head dim (0<r≤1)
     """
     def __init__(self, *, dim: int, num_heads: int, attn_ratio: float):
         super().__init__()
@@ -281,11 +429,30 @@ class Attention(nn.Module):
 
 
 class PSA(nn.Module):
-    """Partial Self-Attention (paper’s accuracy-driven context module).
+    """Partial Self‑Attention (accuracy‑driven context module).
 
-    Split channels in half: leave one half as a local path, apply
-    lightweight attention + MLP to the other half, then fuse and project.
-    This injects global context at low cost (only half the channels attend).
+    Goal
+    - Add global context to deep features at low cost by attending only a
+      portion of channels.
+
+    Why it works
+    - Half the channels pass unchanged (local path); the other half get
+    **attention + MLP**. Fusing them injects context without full attention cost.
+
+    What it does
+    - Split channels with 1×1 conv, apply Attention + MLP to the second half,
+      concatenate halves, and fuse.
+
+    Inputs
+    - x: (B, c_in, H, W) with c_in == c_out
+
+    Outputs
+    - y: (B, c_out, H, W)
+
+    Args
+    - c_in: input channels (must equal c_out)
+    - c_out: output channels
+    - e: expansion ratio for internal channels
 
     ASCII
         x → Conv1×1 → [a | b]
@@ -315,11 +482,28 @@ class PSA(nn.Module):
 class SCDown(nn.Module):
     """Spatial–Channel decoupled downsampling (paper’s efficiency idea).
 
-    Replace a single costly 3×3 stride-2 standard conv with:
-    - 1×1 PWConv to set channels, then
-    - 3×3 DWConv with stride s for spatial reduction.
+    Goal
+    - Lower downsampling cost vs. a single stride‑2 standard conv while keeping
+      information flow healthy.
 
-    This reduces parameters/FLOPs while retaining information.
+    Why it works
+    - 1×1 pointwise conv handles channel change; depthwise stride‑s 3×3 handles
+      spatial reduction with far fewer parameters/FLOPs than a full conv.
+
+    What it does
+    - Applies PWConv1×1 (C_in→C_out), then DWConv3×3 with stride s.
+
+    Inputs
+    - x: (B, c_in, H, W)
+
+    Outputs
+    - y: (B, c_out, H/s, W/s)
+
+    Args
+    - c_in: input channels
+    - c_out: output channels
+    - k: depthwise kernel (typically 3)
+    - s: stride (e.g., 2)
 
     ASCII
         x → PWConv1×1 (C_in→C_out)
