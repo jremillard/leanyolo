@@ -102,9 +102,9 @@ Weight loading notes
 CLI entrypoints (copy/paste friendly)
 - `infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
 - `val.py`: COCO validation (downloads val2017 on demand) and JSON export
-- `scripts/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
-- `scripts/prepare_acquirium.py`: unzip + arrange Aquarium into COCO layout (Windows‑friendly; no symlinks)
-- `scripts/transfer_learn_aquarium.py`: transfer learning example with AMP, warmup+cosine LR, light aug, gradual unfreeze
+- `tools/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
+- `tools/prepare_acquirium.py`: unzip + arrange Aquarium into COCO layout (Windows‑friendly; no symlinks)
+- `tools/transfer_learn_aquarium.py`: transfer learning example with AMP, warmup+cosine LR, light aug, gradual unfreeze
 
 These scripts are intentionally simple and serve as example code. Feel free to
 copy/paste and adapt them for your own datasets and pipelines.
@@ -194,7 +194,7 @@ Train YOLOv10 on the Kaggle Aquarium dataset (COCO-style):
 1) Prepare dataset from local zip (Windows‑friendly; no symlinks):
 
 ```
-./.venv/bin/python scripts/prepare_acquirium.py --root data/aquarium --zip data/AquariumDataset.zip --clean
+./.venv/bin/python tools/prepare_acquirium.py --root data/aquarium --zip data/AquariumDataset.zip --clean
 ```
 
 This prepares:
@@ -211,7 +211,7 @@ data/aquarium/
 Recommended command (CUDA, 50 epochs, 640 resolution, AMP on by default):
 
 ```
-./.venv/bin/python scripts/transfer_learn_aquarium.py \
+./.venv/bin/python tools/transfer_learn_aquarium.py \
   --root data/aquarium \
   --device cuda \
   --model yolov10m \
@@ -230,7 +230,7 @@ Notes:
 Alternate baseline trainer (simple loop), if you prefer:
 
 ```
-./.venv/bin/python scripts/train.py \
+./.venv/bin/python tools/train.py \
   --train-images data/aquarium/images/train \
   --train-ann data/aquarium/train.json \
   --val-images data/aquarium/images/val \

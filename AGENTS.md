@@ -9,7 +9,7 @@ leanyolo/
     data/{dataset.py, transforms.py, collate.py}
     utils/{metrics.py, box_ops.py, losses.py, viz.py}
     tests/{test_*.py, fidelity/}
-  scripts/
+  tools/
     train.py  (baseline trainer)
     transfer_learn_aquarium.py  (example transfer learning script)
     prepare_coco.py  prepare_acquirium.py  ...
@@ -55,10 +55,10 @@ leanyolo/
 
 ## Docs & References Verification
 - When `README.md` is changed (especially the References table), run:
-  - Verify only: `./.venv/bin/python scripts/download_references.py --verify-only`
+- Verify only: `./.venv/bin/python tools/download_references.py --verify-only`
 
 ## References Directory
 - Path: `references/`
 - Papers: `references/<yolo_version>/<paper_id>/data` with TeX/PDF/HTML saved and TeX extracted.
 - Official repo: `references/yolov10/THU-MIG.yoloe` (cloned from https://github.com/THU-MIG/yoloe)
-- Re-generate or verify: `./.venv/bin/python scripts/download_references.py` or `--verify-only`.
+- Re-generate or verify: `./.venv/bin/python tools/download_references.py` or `--verify-only`.

@@ -13,7 +13,7 @@ Target layout:
     val.json
 
 Usage:
-  ./.venv/bin/python scripts/prepare_acquirium.py \
+  ./.venv/bin/python tools/prepare_acquirium.py \
     --zip data/AquariumDataset.zip --root data/aquarium --clean
 
 Notes:
@@ -193,7 +193,7 @@ def main() -> None:
     print("[done] Prepared Aquarium under:", root)
     print(" Images:", images_train, images_val)
     print(" Annotations:", out_train_json, out_val_json)
-    print(" Ready for scripts/train.py and scripts/transfer_learn_aquarium.py")
+    print(" Ready for tools/train.py and tools/transfer_learn_aquarium.py")
 
 
 if __name__ == "__main__":

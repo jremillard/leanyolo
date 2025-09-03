@@ -9,7 +9,7 @@ This script:
 - Removes any other dog_* files, keeping only dog.jpg and dog_viz.jpg
 
 Usage:
-  ./.venv/bin/python scripts/update_dog_viz.py
+  ./.venv/bin/python tools/update_dog_viz.py
 
 Notes:
 - Default model is yolov10s with official weights. Change MODEL below if desired.

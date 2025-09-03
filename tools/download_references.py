@@ -12,7 +12,7 @@ What it does:
 - Verifies the presence of the official YOLOv10 repository.
 
 Usage:
-    python scripts/download_references.py [--out-dir references] [--verify-only]
+    python tools/download_references.py [--out-dir references] [--verify-only]
 """
 
 from __future__ import annotations

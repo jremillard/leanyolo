@@ -3,10 +3,10 @@
 
 Examples
 - Download full val split only:
-  ./scripts/prepare_coco.py --root data/coco --download
+  ./tools/prepare_coco.py --root data/coco --download
 
 - Download and build a 50-image sanity subset:
-  ./scripts/prepare_coco.py --root data/coco --download --sanity 50 --sanity-name coco-sanity50
+  ./tools/prepare_coco.py --root data/coco --download --sanity 50 --sanity-name coco-sanity50
 """
 from __future__ import annotations
 

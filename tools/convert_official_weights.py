@@ -6,7 +6,7 @@ and saves its `state_dict()` to the given path. The resulting `.pt` file is a
 standard PyTorch state_dict compatible with `get_model(weights='/path/to/file.pt')`.
 
 Usage:
-  ./.venv/bin/python scripts/convert_official_weights.py \
+  ./.venv/bin/python tools/convert_official_weights.py \
       --model yolov10n \
       --out weights/yolov10n.state_dict.pt
 

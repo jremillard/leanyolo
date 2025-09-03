@@ -2,7 +2,7 @@
 """Debug micro-overfit on a single image with live viz and loss curves.
 
 Usage (Aquarium example):
-  ./.venv/bin/python scripts/debug_overfit.py \
+  ./.venv/bin/python tools/debug_overfit.py \
     --images data/aquarium/images/train \
     --ann data/aquarium/train.json \
     --model yolov10s \

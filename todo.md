@@ -1,9 +1,9 @@
 # leanyolo TODO
 
 Status (2025‑09‑01)
-- Dataset prep: `scripts/prepare_acquirium.py` added (Windows‑friendly; no symlinks). Done.
-- Transfer script: `scripts/transfer_learn_aquarium.py` added with AMP default, warmup+cosine LR, light aug, gradual unfreeze, detailed logging. Done.
-- Baseline trainer moved to `scripts/train.py`. Done.
+- Dataset prep: `tools/prepare_acquirium.py` added (Windows‑friendly; no symlinks). Done.
+- Transfer script: `tools/transfer_learn_aquarium.py` added with AMP default, warmup+cosine LR, light aug, gradual unfreeze, detailed logging. Done.
+- Baseline trainer moved to `tools/train.py`. Done.
 - Eval helper: `evaluate_coco` renamed to `evaluate` (COCO‑format mAP). Done.
 
 Recent results
@@ -28,8 +28,8 @@ Linter findings (major/high‑value)
 
 Scripts lint highlights
  
-- Broad exceptions in scripts/update_dog_viz.py; narrow exception types and log context.
-- Long lines and large functions in scripts/transfer_learn_aquarium.py and scripts/train.py; consider minor refactors for readability.
+- Broad exceptions in tools/update_dog_viz.py; narrow exception types and log context.
+- Long lines and large functions in tools/transfer_learn_aquarium.py and tools/train.py; consider minor refactors for readability.
 
 Backlog
 - Export (ONNX/TorchScript) and quick perf checks for YOLOv10.

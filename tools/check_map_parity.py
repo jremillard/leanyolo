@@ -6,7 +6,7 @@ then runs leanyolo's COCO evaluation to verify parity within a tolerance.
 
 Usage
   PYTHONPATH=references/yolov10/THU-MIG.yoloe \
-  ./.venv/bin/python scripts/check_map_parity.py \
+  ./.venv/bin/python tools/check_map_parity.py \
       --data-root data/coco \
       --model yolov10n \
       --device cuda \
@@ -14,7 +14,7 @@ Usage
       --tolerance 0.01
 
 Notes
-- Expects the official repo under ./references/yolov10/THU-MIG.yoloe with logs/<model>.csv present (auto-cloned by scripts/download_references.py).
+- Expects the official repo under ./references/yolov10/THU-MIG.yoloe with logs/<model>.csv present (auto-cloned by tools/download_references.py).
 - Uses default weight loading (downloads allowed) for the lean model.
 - For speed, this runs a full-val check; use val.py with --max-images for quick sanity.
 """
