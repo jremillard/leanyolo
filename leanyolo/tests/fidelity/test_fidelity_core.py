@@ -93,6 +93,9 @@ def run_fidelity_for_variant(model_name: str) -> None:
             sys.path.insert(0, off)
             break
     import ultralytics.nn.tasks as tasks  # type: ignore
+    # Ensure legacy class name resolves under THU-MIG/yoloe by aliasing
+    if not hasattr(tasks, "YOLOv10DetectionModel") and hasattr(tasks, "DetectionModel"):
+        tasks.YOLOv10DetectionModel = tasks.DetectionModel  # type: ignore[attr-defined]
     from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
     # Resolve weight file path using our registry metadata (no torch.load)
     from leanyolo.models import get_model_weights
@@ -103,7 +106,7 @@ def run_fidelity_for_variant(model_name: str) -> None:
     if not os.path.exists(wpath):
         os.makedirs(wdir, exist_ok=True)
         entry._download_to(entry.url, wpath, progress=True)
-    # Monkeypatch official torch_safe_load to force weights_only=False
+    # Monkeypatch official torch_safe_load to plain torch.load for deterministic behavior
     tasks.torch_safe_load = lambda weight: (torch.load(weight, map_location="cpu", weights_only=False), weight)
     # Load ckpt and map
     _model_obj, ckpt = attempt_load_one_weight(wpath, device="cpu", inplace=True, fuse=False)

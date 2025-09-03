@@ -22,8 +22,11 @@ def _ensure_official_on_path():
 
 def _load_official_state_dict(weights_path: str) -> dict:
     _ensure_official_on_path()
-    # torch.load with weights_only=False may require ultralytics import
-    import ultralytics  # noqa: F401
+    # Import ultralytics module from references and alias legacy class if missing
+    import ultralytics.nn.tasks as tasks  # type: ignore
+    if not hasattr(tasks, "YOLOv10DetectionModel") and hasattr(tasks, "DetectionModel"):
+        tasks.YOLOv10DetectionModel = tasks.DetectionModel  # type: ignore[attr-defined]
+    # Plain torch.load now works since class is resolvable
     return torch.load(weights_path, map_location="cpu", weights_only=False)
 
 

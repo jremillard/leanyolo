@@ -9,7 +9,7 @@ from leanyolo.data.coco import coco80_class_names
 
 
 def _load_convert_module():
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "convert_official_weights.py"
+    script_path = Path(__file__).resolve().parents[2] / "tools" / "convert_official_weights.py"
     spec = importlib.util.spec_from_file_location("convert_official_weights", str(script_path))
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
@@ -65,4 +65,3 @@ def test_convert_script_roundtrip(tmp_path, monkeypatch):
     for a, b in zip(out_a, out_b):
         assert a.shape == b.shape
         assert torch.allclose(a, b, rtol=0.0, atol=0.0)
-
