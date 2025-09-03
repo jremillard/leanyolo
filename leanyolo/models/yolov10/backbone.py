@@ -1,15 +1,34 @@
 from __future__ import annotations
 
-"""YOLOv10 Backbone
+"""YOLOv10 Backbone (hierarchical feature extractor)
 
-This module builds a hierarchical feature extractor from an input image. The
-backbone gradually downsamples the spatial resolution while increasing channels,
-producing three feature maps at different scales (commonly called C3, C4, C5).
+Purpose
+- Turn an input image into a pyramid of semantically richer features at lower
+  spatial resolutions. Outputs three maps (C3, C4, C5) commonly used by the
+  neck and head.
 
-If you have seen ResNet or similar CNNs, this is the analogous part that turns
-pixels into meaningful feature tensors for downstream detection heads.
+Input/Output (typical)
+- x: (B, 3, H, W)
+- C3: (B, C3, H/8,  W/8)
+- C4: (B, C4, H/16, W/16)
+- C5: (B, C5, H/32, W/32)
 
-See the README for links to the YOLOv10 paper and background references.
+Design highlights tied to the YOLOv10 paper
+- Use SCDown (spatial–channel decoupled downsampling) instead of a single
+  stride-2 standard conv for better efficiency at downsampling points.
+- Allow C2fCIB (compact inverted block) in deeper stages to reduce compute with
+  minimal accuracy impact, optionally enabling a long‑kernel depthwise branch.
+- Add SPPF (multi-scale context) and a lightweight PSA (partial self-attention)
+  at the end to inject global context efficiently.
+
+Stage flow (ASCII)
+    x → Conv s=2 → Conv s=2 → C2f → Conv s=2 → C2f →  C3 (stride 8)
+                       │              │
+                       └─ SCDown s=2 → C2f/C2fCIB →  C4 (stride 16)
+                                       │
+                                       └─ SCDown s=2 → C2f/C2fCIB → SPPF → PSA → C5 (stride 32)
+
+See the README and the paper for background and rationale.
 """
 
 from typing import Tuple, Dict
@@ -23,12 +42,16 @@ from .layers import Conv, C2f, C2fCIB, SPPF, PSA, SCDown
 class YOLOv10Backbone(nn.Module):
     """Backbone producing multi-scale features (C3, C4, C5).
 
-    Args:
-        in_channels: Input image channels, usually 3 for RGB.
-        CH: Channel dictionary for each stage (indices align with paper/code).
-        reps: How many times to repeat certain blocks at each stage.
-        types: Which block variant to use at specific points (e.g., C2f vs C2fCIB).
-        use_lk_c8: Whether to enable the long-kernel depthwise path in the c8 block.
+    Parameters
+    - in_channels: input image channels (3 for RGB)
+    - CH: dict mapping stage indices to channel widths; indices 0..10 correspond
+      to the consecutive nodes in this graph (conv/c2f/scdown/sppf/psa)
+    - reps: repeat counts for blocks at those stages (e.g., number of C2f repeats)
+    - types: choose per-stage block type, e.g. {"c6": "C2fCIB", "c8": "C2f"}
+    - use_lk_c8: if True and c8 uses C2fCIB, enable long‑kernel depthwise branch
+
+    Returns
+    - tuple (C3, C4, C5) with strides (8, 16, 32)
     """
     def __init__(
         self,
@@ -63,10 +86,11 @@ class YOLOv10Backbone(nn.Module):
         self.out_c = (CH[3], CH[5], CH[7])
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Compute backbone features.
+        """Compute (C3, C4, C5) pyramid.
 
-        Returns:
-            Tuple of tensors (C3, C4, C5) at progressively lower resolutions.
+        - C3: output of the first mid‑level C2f stage (stride 8)
+        - C4: output of the next stage after SCDown + C2f/C2fCIB (stride 16)
+        - C5: output after final SCDown, C2f/C2fCIB, SPPF, PSA (stride 32)
         """
         x = self.cv0(x)
         x = self.cv1(x)

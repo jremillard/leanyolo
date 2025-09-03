@@ -1,13 +1,29 @@
 from __future__ import annotations
 
-"""Alternative simple decoupled head (not the default V10 head).
+"""Alternative simple decoupled head (anchor‑free, minimal example).
 
-This head is a minimal, anchor-free design for demonstration. It takes three
-feature maps (P3, P4, P5) and produces per-scale outputs containing box and
-class predictions. The main difference from V10Detect is that this head omits
-the DFL distributions and uses direct regression channels.
+Context
+- YOLOv10’s main head (see ``head_v10.py``) uses DFL (distribution focal loss)
+  with per‑bin logits for box regression and other design details.
+- This file provides a compact, decoupled head that predicts 4 direct box
+  offsets and class logits per location — useful for demonstrations and unit
+  tests, not intended to exactly match the official head.
 
-See README for literature pointers on decoupled heads and anchor-free designs.
+Inputs
+- A tuple of feature maps (P3, P4, P5) from the neck, typically with strides
+  (8, 16, 32). Shapes: (B, Ci, Hi, Wi)
+
+Outputs
+- A list of three tensors [Y3, Y4, Y5], where Yi has shape (B, 4+nc, Hi, Wi)
+  with the first 4 channels as box offsets and the remaining nc channels as
+  class logits (anchor‑free, per‑cell predictions).
+
+Decoupled design (ASCII per scale)
+    x → Stem(1×1) → ┌─ Conv3×3 → Conv1×1 → cls (nc)
+                     └─ Conv3×3 → Conv1×1 → box (4)
+    concat([box, cls]) → out (4+nc channels)
+
+For background on decoupled heads and anchor‑free detection, see the README.
 """
 
 from typing import List, Tuple
@@ -19,10 +35,10 @@ from .layers import Conv, make_divisible
 
 
 class DecoupledHead(nn.Module):
-    """Simple anchor-free, decoupled detection head.
+    """Simple anchor‑free, decoupled detection head.
 
-    Produces per-scale outputs of shape [B, (num_classes + 4), H, W]. The 4
-    channels correspond to box offsets; the remaining channels are class logits.
+    Produces per‑scale outputs of shape (B, 4+nc, H, W). The 4 channels
+    correspond to box offsets; the remaining channels are class logits.
     """
 
     def __init__(self, *, ch: Tuple[int, int, int], num_classes: int, width_mult: float, max_channels: int):
@@ -56,7 +72,11 @@ class DecoupledHead(nn.Module):
             )
 
     def forward(self, feats: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> List[torch.Tensor]:
-        """Apply the head over P3, P4, P5 and concatenate box/class outputs."""
+        """Apply the head to (P3, P4, P5) and concatenate box/class outputs.
+
+        Input: tuple of three tensors (B, Ci, Hi, Wi)
+        Output: list of three tensors (B, 4+nc, Hi, Wi)
+        """
         outs: List[torch.Tensor] = []
         for x, stem, cls, box in zip(feats, self.stems, self.cls_layers, self.box_layers):
             x = stem(x)
