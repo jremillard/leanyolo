@@ -1,18 +1,24 @@
 from __future__ import annotations
 
-"""YOLOv10 Detection Head (training-style outputs)
+"""YOLOv10 Detection Head (training‑style outputs)
 
-This head produces per-scale tensors that contain box-regression distances and
-class logits. It follows a decoupled design: a small regression branch and a
-small classification branch for each input feature map. The DFL (Distribution
-Focal Loss) layer converts discrete distributions over distances into expected
-continuous box offsets.
+Goal
+- Predict class probabilities and high‑quality box regressions from P3/P4/P5
+  features using a decoupled head suitable for end‑to‑end training.
 
-This module returns raw per-scale tensors suitable for loss computation during
-training or for parity checks. Post-processing (e.g., decoding and NMS) is
-performed elsewhere.
+Why it works
+- Decoupled branches (cls/reg) reduce competition and are a proven design in
+  modern YOLOs (e.g., YOLOv5/6/8). YOLOv10 follows this pattern and pairs it
+  with distributional box regression (DFL) to improve localization quality.
+  The paper also trains with consistent dual assignments (one‑to‑many and
+  one‑to‑one) to enable NMS‑free inference, which this head supports by
+  exposing both branches.
 
-See README for references on YOLOv10 and DFL.
+What it does
+- For each scale, apply a small regression stack to output 4×reg_max logits and
+  a classification stack to output nc logits. Optionally compute the expected
+  distances via DFL. In training, return both one‑to‑many and one‑to‑one raw
+  outputs; in eval, return the one‑to‑many branch.
 """
 
 from typing import List, Sequence, Tuple
@@ -24,11 +30,21 @@ from .layers import Conv
 
 
 class DFL(nn.Module):
-    """Distribution Focal Loss helper: converts logits to expected distances.
+    """Distribution Focal Loss projection (logits → expected distances).
 
-    Args:
-        c1: Number of bins per side (e.g., reg_max); the layer is initialized
-            to compute the expectation across these bins.
+    Goal
+    - Convert per‑bin logits for left/top/right/bottom distances into expected
+      continuous offsets for better localization stability.
+
+    Why it works
+    - Modeling box sides as categorical distributions over discrete bins (DFL)
+      captures uncertainty and sub‑pixel precision better than a single scalar
+      regression target; taking the expectation yields smooth, accurate offsets.
+
+    What it does
+    - Initializes a fixed 1×1 conv with weights [0..reg_max‑1] that computes
+      the expectation over softmaxed bin logits. Operates independently per
+      side and per location.
     """
     def __init__(self, *, c1: int):
         super().__init__()
@@ -48,10 +64,25 @@ class DFL(nn.Module):
 class V10Detect(nn.Module):
     """Decoupled YOLOv10 detection head.
 
-    Args:
-        nc: Number of object classes.
-        ch: Channels of the three input feature maps (P3, P4, P5).
-        reg_max: Number of bins used by DFL for distance prediction.
+    Goal
+    - Produce raw per‑scale tensors for classification and DFL‑style box
+      regression, suitable for dual‑assignment training.
+
+    Why it works
+    - Separate light branches for cls/reg improve convergence and accuracy; DFL
+      improves box quality. Dual branches (one‑to‑many and one‑to‑one) align
+      with YOLOv10’s NMS‑free training paradigm.
+
+    What it does
+    - Builds per‑scale conv stacks for regression (→ 4×reg_max) and
+      classification (→ nc). Exposes cloned branches for one‑to‑one training.
+      The forward returns dicts in training and lists in eval for downstream
+      loss/decoding.
+
+    Args
+    - nc: number of classes
+    - ch: channels of (P3,P4,P5)
+    - reg_max: DFL bin count per side
     """
     def __init__(self, *, nc: int, ch: Sequence[int], reg_max: int):
         super().__init__()

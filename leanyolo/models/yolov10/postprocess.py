@@ -1,27 +1,39 @@
 from __future__ import annotations
 
-"""YOLOv10 post-processing utilities.
+"""YOLOv10 post‑processing utilities.
 
-Decode raw head outputs (training-style tensors) into final detections.
+Goal
+- Turn raw head outputs into final, per‑image detections (boxes, scores, labels).
 
-Return format per image:
-- A single tensor of shape (N, 6): [x1, y1, x2, y2, score, cls]
-  - x1, y1: top-left corner in pixels
-  - x2, y2: bottom-right corner in pixels
+Why it works
+- Anchor‑free heads predict either direct offsets (cx,cy,bw,bh) or DFL
+  distributions for distances (l,t,r,b). Converting these to pixel‑space boxes
+  and applying thresholding and NMS yields a clean set of detections consistent
+  with the training targets used across YOLO families.
+
+What it does
+- For each feature map and stride: decode boxes (direct offsets or DFL
+  distances), compute per‑class scores, filter by confidence, merge all scales
+  and run NMS, cap to ``max_det`` per image, and return [x1,y1,x2,y2,score,cls].
+
+Return format per image
+- A tensor of shape (N, 6): [x1, y1, x2, y2, score, cls]
+  - x1, y1: top‑left corner in pixels
+  - x2, y2: bottom‑right corner in pixels
   - score: confidence (max class prob)
   - cls: class index (float for convenience; cast to int as needed)
 
 Parameters
-- num_classes: number of classes.
-- strides: receptive field strides for each feature map (default (8,16,32)).
-- conf_thresh: filter boxes below this score (after sigmoid) before NMS.
-- iou_thresh: IoU threshold for NMS (higher = fewer merges, keep more boxes).
-- max_det: maximum detections per image after NMS.
-- img_size: optional (H, W) to clamp boxes to input bounds.
+- num_classes: number of classes
+- strides: receptive‑field strides per map (default (8,16,32))
+- conf_thresh: filter boxes below this score (sigmoid applied) before NMS
+- iou_thresh: IoU threshold for NMS
+- max_det: maximum detections per image after NMS
+- img_size: optional (H, W) to clamp boxes to input bounds
 
-Notes
-- This variant is specific to YOLOv10 head outputs (either [B, 4+nc, H, W]
-  anchor-free style, or DFL layout [B, 4*reg_max+nc, H, W]).
+Note
+- Supports both layouts: [B, 4+nc, H, W] (direct offsets) and
+  [B, 4*reg_max+nc, H, W] (DFL distances + classes).
 """
 
 from typing import List, Sequence, Tuple
@@ -148,4 +160,3 @@ def decode_v10_predictions(
         results[i] = [di]
 
     return results
-

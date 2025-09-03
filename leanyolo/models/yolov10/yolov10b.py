@@ -1,9 +1,18 @@
 from __future__ import annotations
 
-"""YOLOv10-b model definition.
+"""YOLOv10‑b model (base) definition.
 
-The base (b) variant is similar in capacity to `l` with slightly different
-channel choices; included to match official family sizing.
+Goal
+- Offer an intermediate capacity between medium and large with minor channel
+  differences matching the official family.
+
+Why it works
+- Same architecture as other variants; width/depth scaling provides accuracy
+  gains while retaining YOLOv10’s efficient modules and decoupled head.
+
+What it does
+- Wires backbone→neck→head with base widths/repeats; includes normalization and
+  decode helper for inference.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)

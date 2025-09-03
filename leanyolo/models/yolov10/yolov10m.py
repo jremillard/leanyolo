@@ -1,8 +1,19 @@
 from __future__ import annotations
 
-"""YOLOv10-m model definition.
+"""YOLOv10‑m model (medium) definition.
 
-The medium (m) variant provides a balance of speed and accuracy.
+Goal
+- Provide a balanced configuration with more capacity than small while keeping
+  real‑time performance on moderate hardware.
+
+Why it works
+- Depth/width scaling plus YOLOv10’s efficient blocks (SCDown, C2f/C2fCIB) and
+  decoupled head with DFL follow practices proven across YOLOs, yielding better
+  accuracy without excessive latency.
+
+What it does
+- Wires backbone→neck→head with medium widths/repeats and includes normalization
+  buffers and a decode helper for inference.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)

@@ -1,9 +1,20 @@
 from __future__ import annotations
 
-"""YOLOv10-n model definition.
+"""YOLOv10‑n model (nano) definition.
 
-The nano (n) variant trades accuracy for speed by using smaller channel sizes
-and fewer block repetitions. Structure is identical to other variants.
+Goal
+- Provide the fastest, smallest YOLOv10 variant for constrained devices while
+  retaining the core architectural ideas.
+
+Why it works
+- Width/depth scaling reduces channels and repeats while keeping efficient
+  blocks (SCDown, C2f/C2fCIB) and the decoupled head pattern pioneered across
+  YOLOs (from v3’s multi‑scale, v5/6/8 decoupled heads, to v10’s DFL + dual
+  assignments). This preserves good accuracy‑per‑FLOP.
+
+What it does
+- Wires the common backbone→neck→head with nano channel widths and repeats, and
+  exposes simple normalization and a decode helper for inference.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)
@@ -27,8 +38,8 @@ Output format:
   (letterboxed) size. Thresholds via attributes: post_conf_thresh (0.25),
   post_iou_thresh (0.45), post_max_det (300).
 
-Note:
-- These YOLOv10x classes (family) are raw model modules. For inference, wrap
+Note
+- These YOLOv10* classes are raw model modules. For inference, wrap
   preprocessing (RGB, letterbox, normalization) and postprocessing (decode,
   NMS, unletterbox). See infer.py for a reference pipeline.
 """

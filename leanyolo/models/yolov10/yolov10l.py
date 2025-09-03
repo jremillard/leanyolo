@@ -1,9 +1,19 @@
 from __future__ import annotations
 
-"""YOLOv10-l model definition.
+"""YOLOv10‑l model (large) definition.
 
-The large (l) variant increases capacity for higher accuracy on larger devices.
-Structure is the same as other variants, with bigger channels and more repeats.
+Goal
+- Provide a high‑accuracy configuration for larger devices while keeping the
+  efficient YOLOv10 architecture.
+
+Why it works
+- Scaling widths/repeats increases capacity; SCDown, C2f/C2fCIB, SPPF, PSA, and
+  a decoupled DFL head maintain good efficiency/accuracy trade‑offs per the
+  YOLO lineage culminating in YOLOv10’s design.
+
+What it does
+- Wires backbone→neck→head with large widths/repeats; includes normalization
+  buffers and a decode helper for inference.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)

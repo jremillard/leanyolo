@@ -1,14 +1,22 @@
 from __future__ import annotations
 
-"""YOLOv10-s model definition.
+"""YOLOv10‑s model (small) definition.
 
-This is the small (s) variant of YOLOv10. Variants differ mainly in channel
-counts and block repetitions; the code below wires up the backbone, neck, and
-head with the appropriate sizes for this model.
+Goal
+- Provide a balanced speed/accuracy configuration for general use, keeping the
+  core YOLOv10 ideas while increasing capacity over nano.
 
-If you are new to detection models, read the README’s high-level overview and
-paper references. The forward pass is: image → backbone (C3/C4/C5) → neck
-(P3/P4/P5) → head (per-scale outputs).
+Why it works
+- Scaling channel widths and repeats improves capacity while the underlying
+  architecture (SCDown, C2f/C2fCIB, SPPF, PSA, decoupled head with DFL) follows
+  effective patterns across the YOLO lineage (v1 unified detection → v2 anchors
+  → v3 FPN multi‑scale → v4/v5/v6 bags of freebies/specials and decoupled heads
+  → v8 C2f + anchor‑free → v10 dual assignments + efficiency/accuracy tweaks).
+
+What it does
+- Wires backbone (C3/C4/C5) → neck (P3/P4/P5) → YOLOv10 head with the small
+  variant’s channels/repeats. Includes input normalization buffers and a decode
+  helper for convenience.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)
@@ -33,8 +41,8 @@ Output format:
   post_conf_thresh (default 0.25), post_iou_thresh (default 0.45),
   post_max_det (default 300).
 
-Note:
-- These YOLOv10x classes (family) are raw model modules. For inference, wrap
+Note
+- These YOLOv10* classes are raw model modules. For inference, wrap
   preprocessing (RGB, letterbox, normalization) and postprocessing (decode,
   NMS, unletterbox). See infer.py for a reference pipeline.
 """

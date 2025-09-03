@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-"""YOLOv10-x model definition.
+"""YOLOv10‑x model (extra‑large) definition.
 
-The extra-large (x) variant maximizes accuracy and is the slowest/most memory
-hungry. Structure is unchanged; only the channel/repetition config scales up.
+Goal
+- Maximize accuracy for the most capable hardware in the family.
+
+Why it works
+- Scaling up while preserving YOLOv10’s efficient blocks and decoupled DFL head
+  yields strong accuracy at higher compute footprints.
+
+What it does
+- Wires backbone→neck→head with extra‑large widths/repeats; includes
+  normalization and decode helper for inference.
 
 Input format:
 - Tensor layout: CHW, shape (N, C, H, W)
