@@ -36,11 +36,8 @@ import torch.nn as nn
 
 import warnings
 from ..utils.weights import WeightsEntry, WeightsResolver
-from ..utils.remap import (
-    adapt_state_dict_for_lean,
-    remap_official_yolov10_to_lean,
-    extract_state_dict,
-)
+from ..utils.remap import adapt_state_dict_for_lean, extract_state_dict
+from .yolov10.remap import remap_official_yolov10_to_lean
 
 
 # Model registry (name -> builder)

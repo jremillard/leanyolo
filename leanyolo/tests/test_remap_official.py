@@ -4,7 +4,7 @@ import torch
 
 from leanyolo.models import get_model, get_model_weights
 from leanyolo.data.coco import coco80_class_names
-from leanyolo.utils.remap import remap_official_yolov10_to_lean
+from leanyolo.models.yolov10.remap import remap_official_yolov10_to_lean
 
 
 @pytest.mark.fidelity

@@ -25,7 +25,7 @@ from tqdm import tqdm
 
 from leanyolo.models import get_model
 from leanyolo.data.coco_simple import CocoDetection, coco_collate
-from leanyolo.utils.losses_v10 import detection_loss_v10
+from leanyolo.models.yolov10.losses import detection_loss_v10
 
 
 def load_class_names_from_coco(ann_path: str) -> List[str]:

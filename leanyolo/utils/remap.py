@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 import torch
-from .keymap import remap_official_keys_by_name
 
 
 POSSIBLE_STATE_KEYS = (
@@ -130,10 +129,10 @@ def strip_common_prefixes(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torc
 
 
 def adapt_state_dict_for_lean(loaded: Dict) -> Dict[str, torch.Tensor]:
-    """Lightweight adapter for official YOLOv10 weights.
+    """Lightweight adapter for official weights.
 
-    This function only unwraps wrapper keys and strips common prefixes.
-    It does not attempt deep architectural remapping.
+    Unwraps wrapper keys and strips common prefixes. Does not attempt
+    architecture-specific remapping.
     """
     sd = extract_state_dict(loaded)
     # Only keep tensor-like entries (skip metadata entries if present)
@@ -174,50 +173,4 @@ def remap_by_shape(src_sd: Dict[str, torch.Tensor], dst_sd: Dict[str, torch.Tens
     return out
 
 
-def remap_official_yolov10_to_lean(loaded_obj: Dict, dst_model: torch.nn.Module) -> Dict[str, torch.Tensor]:
-    """Map an official YOLOv10 checkpoint (THU-MIG/Ultralytics format) to our lean model.
-
-    Strategy:
-    - Extract nested state dict from the checkpoint (handles object wrappers).
-    - Strip common prefixes (module./model.).
-    - Heuristically align by matching shapes in iteration order.
-    """
-    # 1) Get raw official state dict (handles wrapped ckpt objects)
-    raw_src = extract_state_dict(loaded_obj)
-    dst_sd = dst_model.state_dict()
-
-    # 2) Deterministic mapping by layer indices/prefix names
-    # Deterministic rename and filter by shape compatibility
-    nm_raw = remap_official_keys_by_name(raw_src, dst_sd)
-    name_mapped = {k: v for k, v in nm_raw.items() if isinstance(v, torch.Tensor) and v.shape == dst_sd[k].shape}
-
-    # 3) Fallback: strip prefixes then fill remaining by shape
-    stripped = strip_common_prefixes({k: v for k, v in raw_src.items() if isinstance(v, torch.Tensor)})
-    remaining_dst = {k: v for k, v in dst_sd.items() if k not in name_mapped}
-    shape_fill = remap_by_shape(stripped, remaining_dst)
-
-    out = dict(name_mapped)
-    out.update(shape_fill)
-
-    # Fill fused RepVGGDW conv1 branches when official checkpoint is fused (no conv1 keys)
-    # Detect by presence of sibling '...cv1.2.conv.conv.weight' and absence of '...cv1.2.conv1.conv.weight'
-    for dk in dst_sd.keys():
-        if ".cv1.2.conv1.conv.weight" in dk and dk not in out:
-            base = dk.replace("conv1.conv.weight", "conv.conv.weight")
-            if base in out:
-                # create zeros for conv1 weights with correct shape
-                wshape = dst_sd[dk].shape
-                out[dk] = torch.zeros(wshape)
-                # Also handle BN parameters for conv1 if expected
-                bn_w = dk.replace("conv.weight", "bn.weight")
-                bn_b = dk.replace("conv.weight", "bn.bias")
-                bn_rm = dk.replace("conv.weight", "bn.running_mean")
-                bn_rv = dk.replace("conv.weight", "bn.running_var")
-                if bn_w in dst_sd and bn_w not in out:
-                    num = dst_sd[bn_w].shape[0]
-                    out[bn_w] = torch.ones_like(dst_sd[bn_w])
-                    out[bn_b] = torch.zeros_like(dst_sd[bn_b])
-                    out[bn_rm] = torch.zeros_like(dst_sd[bn_rm])
-                    out[bn_rv] = torch.ones_like(dst_sd[bn_rv])
-
-    return out
+## Note: YOLOv10-specific remapping moved to leanyolo.models.yolov10.remap

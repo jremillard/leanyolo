@@ -2,7 +2,7 @@ import math
 
 import torch
 
-from leanyolo.utils.losses_v10 import _dfl_loss, _exp_from_dfl, detection_loss_v10
+from leanyolo.models.yolov10.losses import _dfl_loss, _exp_from_dfl, detection_loss_v10
 
 
 def test_dfl_loss_matches_official_formula_seeded():

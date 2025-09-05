@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 from leanyolo.models import get_model
 from leanyolo.data.coco_simple import CocoDetection, coco_collate
-from leanyolo.utils.losses_v10 import detection_loss_v10
+from leanyolo.models.yolov10.losses import detection_loss_v10
 from leanyolo.utils.viz import draw_detections
 from leanyolo.utils.box_ops import unletterbox_coords
 from leanyolo.utils.letterbox import letterbox
