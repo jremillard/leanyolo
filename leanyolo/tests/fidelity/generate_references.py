@@ -101,32 +101,38 @@ def _collect_official_outputs(size: str, img: int, weights_path: str) -> Dict[st
 
     x = _deterministic_input(img)
     with torch.no_grad():
-        out_full = model(x)  # outputs depend on official version; for Detect models returns train outputs
+        out_full = model(x)  # outputs depend on official version; for YOLOv10 returns (decoded, dict) in eval
 
     for h in hooks:
         h.remove()
 
-    # out_full for YOLOv10 returns dict with 'one2many' (tuple: (decoded, raw_list)) in eval mode.
-    # Normalize to a list of three raw tensors [P3, P4, P5] from the second element.
-    if isinstance(out_full, dict):
-        o = out_full.get("one2many", None)
-        if o is None:
-            raise RuntimeError("Unexpected official model output dict structure; expected key 'one2many'.")
-        if isinstance(o, (list, tuple)) and len(o) == 2 and isinstance(o[1], (list, tuple)):
-            head_out = list(o[1])  # raw per-level outputs
-        elif isinstance(o, (list, tuple)):
-            # Some variants may return only raw list in eval; accept directly
+    # Parse outputs for YOLOv10 eval: (decoded, {"one2many": [...], "one2one": [...]})
+    decoded_topk = None
+    if isinstance(out_full, tuple) and len(out_full) == 2 and isinstance(out_full[1], dict):
+        y, dct = out_full
+        if isinstance(y, torch.Tensor) and y.ndim == 3:
+            decoded_topk = y  # [B, N, 6]
+        o = dct.get("one2many", None)
+        if isinstance(o, (list, tuple)) and len(o) == 3:
             head_out = list(o)
         else:
-            raise RuntimeError(f"Unexpected 'one2many' structure: type={type(o)}")
-    elif isinstance(out_full, (list, tuple)):
-        head_out = list(out_full)
+            raise RuntimeError("Unexpected YOLOv10 dict structure for one2many")
+    elif isinstance(out_full, dict):
+        # Training-style dict; take raw list only
+        o = out_full.get("one2many", None)
+        if isinstance(o, (list, tuple)):
+            head_out = list(o[-1] if (len(o) == 2 and isinstance(o[1], (list, tuple))) else o)
+        else:
+            raise RuntimeError("Unexpected YOLOv10 dict structure for one2many (training mode)")
     else:
-        # Fallback: if it's a single tensor, split by stride (not expected for v10)
         raise RuntimeError(f"Unexpected official model output type: {type(out_full)}")
 
     c3, c4, c5 = feats[c_idx[0]], feats[c_idx[1]], feats[c_idx[2]]
     p3, p4, p5 = feats[n_idx[0]], feats[n_idx[1]], feats[n_idx[2]]
+
+    # Also compute LeanYOLO NMS-style decode on the raw one-to-many head outputs for offline parity
+    from ...models.yolov10.postprocess import decode_v10_predictions
+    decoded_nms_list = decode_v10_predictions(head_out, num_classes=80, strides=(8, 16, 32), conf_thresh=0.25, iou_thresh=0.45, max_det=300, img_size=(img, img))
 
     return {
         "input": x,
@@ -139,6 +145,8 @@ def _collect_official_outputs(size: str, img: int, weights_path: str) -> Dict[st
         "head_p3": head_out[0],
         "head_p4": head_out[1],
         "head_p5": head_out[2],
+        "decoded_topk": decoded_topk[0] if isinstance(decoded_topk, torch.Tensor) else torch.empty((0, 6)),
+        "decoded_nms": decoded_nms_list[0][0] if decoded_nms_list and decoded_nms_list[0] else torch.empty((0, 6)),
     }
 
 

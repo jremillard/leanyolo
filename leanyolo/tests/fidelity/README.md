@@ -32,6 +32,8 @@ Official reference extraction hooks use stable indices from the YAML graphs: bac
   - `backbone_c3.pt`, `backbone_c4.pt`, `backbone_c5.pt`
   - `neck_p3.pt`, `neck_p4.pt`, `neck_p5.pt`
   - `head_p3.pt`, `head_p4.pt`, `head_p5.pt`
+  - `decoded_topk.pt` (official eval decode: DFL+anchors+top-k, no NMS)
+  - `decoded_nms.pt` (Lean decode via `decode_v10_predictions`, NMS-based)
   - `meta.json` with shapes, dtype, weights path, and image size
 - Reports: JSON summaries saved to `leanyolo/tests/reports/<model>-<timestamp>.json`.
 
@@ -50,6 +52,7 @@ python -m leanyolo.tests.fidelity.generate_references --sizes n s m l x --img 32
 Notes:
 - The generator resolves official THU-MIG `*.pt` weights via the leanyolo weights registry. You may set `LEANYOLO_WEIGHTS_DIR` to a local directory containing weight files to avoid network.
 - References are written under `leanyolo/tests/data/refs/`.
+ - Decoded references (`decoded_topk.pt`) are produced from the official model's eval path (one-to-one branch with top-k) and are used by offline decode parity tests comparing against `decode_v10_official_topk`.
 
 ## Running Tests
 

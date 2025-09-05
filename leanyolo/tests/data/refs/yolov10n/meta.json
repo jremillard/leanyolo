@@ -64,5 +64,5 @@
       10
     ]
   },
-  "weights_path": "/home/jason/.cache/leanyolo/yolov10n.pt"
+  "weights_path": "PRETRAINED_COCO"
 }

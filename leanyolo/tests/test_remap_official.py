@@ -1,51 +1,17 @@
 import os
-import sys
-
-import torch
 import pytest
+import torch
 
-from leanyolo.models import get_model
+from leanyolo.models import get_model, get_model_weights
 from leanyolo.data.coco import coco80_class_names
 from leanyolo.utils.remap import remap_official_yolov10_to_lean
 
 
-def _ensure_official_on_path():
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    candidates = [
-        os.path.join(repo_root, "references", "yolov10", "THU-MIG.yoloe"),
-    ]
-    for root in candidates:
-        if os.path.isdir(root) and root not in sys.path:
-            sys.path.insert(0, root)
-            return
-
-
-def _load_official_state_dict(weights_path: str) -> dict:
-    _ensure_official_on_path()
-    # Import ultralytics module from references and alias legacy class if missing
-    import ultralytics.nn.tasks as tasks  # type: ignore
-    if not hasattr(tasks, "YOLOv10DetectionModel") and hasattr(tasks, "DetectionModel"):
-        tasks.YOLOv10DetectionModel = tasks.DetectionModel  # type: ignore[attr-defined]
-    # Plain torch.load now works since class is resolvable
-    return torch.load(weights_path, map_location="cpu", weights_only=False)
-
-
 @pytest.mark.fidelity
 def test_remap_covers_majority_of_params(tmp_path):
-    # Download official weights to temp cache if not present
-    from leanyolo.models.registry import _YOLOv10Weights
-    entry = _YOLOv10Weights().get("yolov10s", "PRETRAINED_COCO")
-    # Download manually and load with weights_only=False due to PyTorch 2.6+ changes
-    import urllib.request, os
-    dst = os.path.join(str(tmp_path), entry.filename)
-    if not os.path.exists(dst):
-        with urllib.request.urlopen(entry.url) as r, open(dst, 'wb') as f:
-            while True:
-                chunk = r.read(1<<20)
-                if not chunk:
-                    break
-                f.write(chunk)
-    loaded = _load_official_state_dict(dst)
+    # Resolve and load official weights via our WeightsEntry (no ultralytics import)
+    entry = get_model_weights("yolov10s")().get("yolov10s", "PRETRAINED_COCO")
+    loaded = entry.get_state_dict(progress=True, map_location="cpu")
 
     # Build lean model
     model = get_model(
@@ -67,19 +33,8 @@ def test_remap_covers_majority_of_params(tmp_path):
 
 @pytest.mark.fidelity
 def test_first_conv_maps_identically(tmp_path):
-    from leanyolo.models.registry import _YOLOv10Weights
-
-    entry = _YOLOv10Weights().get("yolov10s", "PRETRAINED_COCO")
-    import urllib.request, os
-    dst = os.path.join(str(tmp_path), entry.filename)
-    if not os.path.exists(dst):
-        with urllib.request.urlopen(entry.url) as r, open(dst, 'wb') as f:
-            while True:
-                chunk = r.read(1<<20)
-                if not chunk:
-                    break
-                f.write(chunk)
-    loaded = _load_official_state_dict(dst)
+    entry = get_model_weights("yolov10s")().get("yolov10s", "PRETRAINED_COCO")
+    loaded = entry.get_state_dict(progress=True, map_location="cpu")
 
     model = get_model(
         "yolov10s",

@@ -1,36 +1,16 @@
 import torch
 import pytest
 
+from leanyolo.tests.fidelity.common import ref_path, load_tensor
+
 
 @pytest.mark.fidelity
-def test_neck_feature_shapes_match_official():
-    import sys, os
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    candidates = [
-        os.path.join(repo_root, "references", "yolov10", "THU-MIG.yoloe"),
-    ]
-    for p in candidates:
-        if os.path.isdir(p):
-            sys.path.insert(0, p)
-            break
-    from ultralytics.nn.tasks import YOLOv10DetectionModel
-
-    off = YOLOv10DetectionModel('ultralytics/cfg/models/v10/yolov10s.yaml')
-    off.eval()
-
-    feats = {}
-    idxs = [16, 19, 22]
-    hooks = [off.model[i].register_forward_hook(lambda m, inp, out, i=i: feats.__setitem__(i, out)) for i in idxs]
-
-    x = torch.zeros(1, 3, 640, 640)
-    with torch.no_grad():
-        _ = off(x)
-
-    for h in hooks:
-        h.remove()
-
+def test_neck_feature_shapes_match_references():
+    # Compare our neck outputs against saved reference shapes for yolov10s
     from leanyolo.models import get_model
     from leanyolo.data.coco import coco80_class_names
+
+    x = torch.zeros(1, 3, 320, 320)
     m = get_model(
         'yolov10s',
         weights=None,
@@ -42,6 +22,10 @@ def test_neck_feature_shapes_match_official():
         c3, c4, c5 = m.backbone(x)
         p3, p4, p5 = m.neck(c3, c4, c5)
 
-    assert p3.shape == feats[16].shape
-    assert p4.shape == feats[19].shape
-    assert p5.shape == feats[22].shape
+    r_p3 = load_tensor(ref_path('yolov10s', 'neck_p3'))
+    r_p4 = load_tensor(ref_path('yolov10s', 'neck_p4'))
+    r_p5 = load_tensor(ref_path('yolov10s', 'neck_p5'))
+
+    assert tuple(p3.shape) == tuple(r_p3.shape)
+    assert tuple(p4.shape) == tuple(r_p4.shape)
+    assert tuple(p5.shape) == tuple(r_p5.shape)

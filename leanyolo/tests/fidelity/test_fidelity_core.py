@@ -8,7 +8,6 @@ import pytest
 import torch
 
 from leanyolo.models import get_model
-from leanyolo.utils.remap import remap_official_yolov10_to_lean, extract_state_dict
 from .common import (
     ensure_dirs,
     load_inputs,
@@ -72,46 +71,15 @@ def run_fidelity_for_variant(model_name: str) -> None:
 
     # Load inputs and model
     x = load_inputs(320)
-    # Build lean model and load official weights via official loader to avoid torch.load safety issues
+    # Build lean model and load PRETRAINED_COCO weights via our registry (no ultralytics dependency)
     from leanyolo.data.coco import coco80_class_names
     m = get_model(
         model_name,
-        weights=None,
+        weights="PRETRAINED_COCO",
         class_names=coco80_class_names(),
         input_norm_subtract=[0.0],
         input_norm_divide=[1.0],
     )
-    # Use official loader to get checkpoint then remap
-    # Add official repo to path
-    import sys
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-    candidates = [
-        os.path.join(repo_root, "references", "yolov10", "THU-MIG.yoloe"),
-    ]
-    for off in candidates:
-        if os.path.isdir(off) and off not in sys.path:
-            sys.path.insert(0, off)
-            break
-    import ultralytics.nn.tasks as tasks  # type: ignore
-    # Ensure legacy class name resolves under THU-MIG/yoloe by aliasing
-    if not hasattr(tasks, "YOLOv10DetectionModel") and hasattr(tasks, "DetectionModel"):
-        tasks.YOLOv10DetectionModel = tasks.DetectionModel  # type: ignore[attr-defined]
-    from ultralytics.nn.tasks import attempt_load_one_weight  # type: ignore
-    # Resolve weight file path using our registry metadata (no torch.load)
-    from leanyolo.models import get_model_weights
-
-    entry = get_model_weights(model_name)().get(model_name, "PRETRAINED_COCO")
-    wdir = os.environ.get("LEANYOLO_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".cache", "leanyolo"))
-    wpath = os.path.join(wdir, entry.filename or f"{model_name}.pt")
-    if not os.path.exists(wpath):
-        os.makedirs(wdir, exist_ok=True)
-        entry._download_to(entry.url, wpath, progress=True)
-    # Monkeypatch official torch_safe_load to plain torch.load for deterministic behavior
-    tasks.torch_safe_load = lambda weight: (torch.load(weight, map_location="cpu", weights_only=False), weight)
-    # Load ckpt and map
-    _model_obj, ckpt = attempt_load_one_weight(wpath, device="cpu", inplace=True, fuse=False)
-    mapped = remap_official_yolov10_to_lean(ckpt, m)
-    m.load_state_dict(mapped, strict=False)
 
     # Compute lean outputs
     outs = _run_lean_components(m, x)
