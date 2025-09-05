@@ -1,11 +1,5 @@
 # leanyolo TODO
 
-Status (2025‑09‑01)
-- Dataset prep: `tools/prepare_acquirium.py` added (Windows‑friendly; no symlinks). Done.
-- Transfer script: `tools/transfer_learn_aquarium.py` added with AMP default, warmup+cosine LR, light aug, gradual unfreeze, detailed logging. Done.
-- Baseline trainer moved to `tools/train.py`. Done.
-- Eval helper: `evaluate_coco` renamed to `evaluate` (COCO‑format mAP). Done.
-
 Recent results
 - Aquarium (COCO‑format), yolov10m @ 640, 50 epochs, batch 32, AMP: best mAP50‑95 ≈ 0.389 at epoch 35.
 
