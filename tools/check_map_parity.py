@@ -5,7 +5,6 @@ This script reads the target mAP50-95 from references/yolov10/THU-MIG.yoloe/logs
 then runs leanyolo's COCO evaluation to verify parity within a tolerance.
 
 Usage
-  PYTHONPATH=references/yolov10/THU-MIG.yoloe \
   ./.venv/bin/python tools/check_map_parity.py \
       --data-root data/coco \
       --model yolov10n \
