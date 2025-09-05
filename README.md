@@ -1,155 +1,135 @@
 # leanYOLO
 
-This project (leanYOLO) goal is to provide PyTorch implementations of YOLOs that is easy to integrate, easy to understand.
+The goal of this project is to provide a lean, easy-to-understand, and easy-to-integrate PyTorch implementation of YOLO models.
 
-## Status
-- Core code implemented: model registry, architecture, exact weight loader, inference/validation CLIs, and tests.
+## Scope & Status
 
-## Scope
-- YOLOv10-only: backbone, neck, detection head.
-- Object detection only: this project focuses solely on detection. Segmentation, pose, and OBB are out of scope.
-- Official weights: load checkpoints for sizes `n`, `s`, `m`, `b`, `l`, `x`.
+This project focuses on providing a minimal, yet functional, implementation of YOLOv10 for object detection.
 
-## YOLO History
+-   **Core Implementation:** Model registry, architecture, official weight loading, inference/validation CLIs, and tests are complete.
+-   **YOLOv10 Only:** Implements the YOLOv10 backbone, neck, and detection head.
+-   **Object Detection Only:** Segmentation, pose estimation, and oriented bounding box (OBB) detection are out of scope.
+-   **Official Weights:** Supports loading official pretrained checkpoints for `n`, `s`, `m`, `b`, `l`, and `x` models.
 
-YOLO (You Only Look Once) is a real-time object deep learning detection algorithm in computer vision that predicts 
-bounding boxes and class probabilities directly from full images in a single pass.
+## A Brief History of YOLO
 
-YOLO's focus is on speed, accuracy, and efficiency for object detection tasks, often used in applications running on edge devices or that require high speed.
+YOLO (You Only Look Once) is a family of real-time object detection algorithms in computer vision. It is known for its ability to predict bounding boxes and class probabilities from full images in a single pass, making it a popular choice for applications requiring high speed and efficiency, especially on edge devices.
 
 ## Getting Started
 
-- Prerequisites: Python 3.9+ (3.10/3.11 recommended), Git
+### Prerequisites
 
-Create and activate a virtual environment (Linux/macOS):
-```
-python -m venv .venv
-source .venv/bin/activate
-```
+-   Python 3.9+ (3.10/3.11 recommended)
+-   Git
 
-Install PyTorch with CUDA in the venv
-```
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
+### Installation
 
-Install project dependencies:
-```
-pip install -r requirements.txt
-```
+1.  **Create and activate a virtual environment:**
+
+    ```bash
+    python -m venv .venv
+    source .venv/bin/activate
+    ```
+
+2.  **Install PyTorch with CUDA support:**
+
+    ```bash
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    ```
+
+3.  **Install project dependencies:**
+
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ## Python API
 
-Build a model using PyTorch-style API with model registry pattern:
+Use the PyTorch-style API to build and use models.
+
 ```python
 import torch
-from lean_yolo.models import get_model, get_model_weights, list_models
+from leanyolo.models import get_model, list_models
 from leanyolo.data.coco import coco80_class_names
 
 # List available models (similar to torchvision.models)
-all_models = list_models()  # Returns ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
-print(f"Available models: {all_models}")
+print(f"Available models: {list_models()}")
+# Output: ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
 
-# Load a model with pretrained weights (weights="PRETRAINED_COCO" loads official weights)
-# Use YOLO-standard input normalization: subtract [0,0,0], divide by [255,255,255]
+# Load a model with pretrained COCO weights
+# The model handles input normalization (division by 255) internally.
 model = get_model(
     "yolov10s",
     weights="PRETRAINED_COCO",
     class_names=coco80_class_names(),
-    input_norm_subtract=[0, 0, 0],
-    input_norm_divide=[255, 255, 255],
 )
 model.eval()
 
-# Alternative: load with specific configuration
-# To skip normalization inside the model, use [0,0,0] and [1,1,1]
-model = get_model(
-    "yolov10s",
-    weights=None,
-    class_names=coco80_class_names(),
-    input_norm_subtract=[0, 0, 0],
-    input_norm_divide=[1, 1, 1],
-)  # No pretrained weights
-model.eval()
-
-# Load weights separately if needed
-weights_enum = get_model_weights("yolov10s")  # Returns the resolver type
-weights_entry = weights_enum().get("yolov10s", "PRETRAINED_COCO")  # Pretrained COCO
-model.load_state_dict(weights_entry.get_state_dict(progress=True))
-
-# Forward a dummy tensor (model applies normalization). In eval mode, YOLOv10
-# models return decoded detections per image: list of [N,6] tensors
-# [x1, y1, x2, y2, score, cls].
+# Example: Forward a dummy tensor
+# In eval mode, the model returns a list of decoded detections per image.
+# Each detection is a [N, 6] tensor: [x1, y1, x2, y2, score, class_index].
 x = torch.zeros(1, 3, 640, 640)
-model.post_conf_thresh = 0.25  # confidence threshold (after sigmoid)
-model.post_iou_thresh = 0.45   # IoU threshold for NMS (higher keeps more overlaps)
+model.post_conf_thresh = 0.25  # Confidence threshold
+model.post_iou_thresh = 0.45   # IoU threshold for Non-Maximum Suppression (NMS)
+
 with torch.no_grad():
-    raw = model(x)  # [P3,P4,P5] raw tensors in training/eval
-    dets_per_img = model.decode_forward(raw)
-    dets = dets_per_img[0][0]  # [N,6]
-    # x1,y1 = top-left; x2,y2 = bottom-right (pixels in input letterbox space)
+    detections = model(x)
+    print(detections[0].shape) # Shape of detections for the first image
 ```
 
-Weight loading notes
-- Official sources only: downloads use the YOLOv10 official releases from `THU-MIG/yolov10` (e.g., v1.1 assets like `yolov10s.pt`). Ultralytics weights are not used here.
-- Offline options:
-  - Set `LEAN_YOLO_WEIGHTS_DIR=/path/to/weights` and place files like `yolov10s.pt` there, or
-  - Pass a local file path to `get_state_dict(local_path=...)`.
-- If weights cannot be found, the model initializes randomly and a warning is emitted.
+### Weight Loading
 
+-   **Official Sources:** Weights are downloaded from the official `THU-MIG/yolov10` repository releases.
+-   **Offline Usage:**
+    -   Set the `LEAN_YOLO_WEIGHTS_DIR` environment variable to a directory containing the `.pt` weight files.
+    -   Alternatively, pass a local file path directly to `get_model(weights="/path/to/weights.pt", ...)`.
+-   **Initialization:** If weights are not found or specified, the model will be initialized with random weights, and a warning will be issued.
 
-## CLI 
+## Command-Line Interface (CLI)
 
-CLI entrypoints (copy/paste friendly)
-- `tools/infer.py`: basic inference with letterbox preprocessing, decode, NMS, and visualization
-- `tools/val.py`: COCO validation (downloads val2017 on demand) and JSON export
-- `tools/train.py`: baseline trainer showing data loading, loss, scheduler, eval, and checkpointing
-- `tools/prepare_acquirium.py`: unzip + arrange Aquarium into COCO layout (Windows‑friendly; no symlinks)
-- `tools/transfer_learn_aquarium.py`: transfer learning example with AMP, warmup+cosine LR, light aug, gradual unfreeze
+This project provides simple and adaptable CLI scripts for common tasks.
 
-These scripts are intentionally simple and serve as example code. Feel free to
-copy/paste and adapt them for your own datasets and pipelines.
+-   `tools/infer.py`: Perform inference on images with letterbox preprocessing, decoding, NMS, and visualization.
+-   `tools/val.py`: Run COCO validation and export results to a JSON file.
+-   `tools/train.py`: A baseline training script demonstrating data loading, loss calculation, scheduling, evaluation, and checkpointing.
+-   `tools/prepare_aquarium.py`: Unzip and arrange the Aquarium dataset into a COCO-style layout.
+-   `tools/transfer_learn_aquarium.py`: An example of transfer learning with AMP, learning rate scheduling, and gradual unfreezing.
 
-Notes
-- Training requires COCO JSON annotation format (standard COCO dataset structure).
-- Class names are automatically extracted from the COCO JSON files.
-- For COCO, the standard 80-class list is used.
-
-Preprocessing
-- Inference/validation use letterbox resize with padding (114,114,114) for parity with official preprocessing.
+These scripts are designed to be easy to copy and modify for your own projects.
 
 ## Datasets
 
-COCO JSON format is the primary supported format. The project expects standard COCO dataset structure:
+The primary supported annotation format is **COCO JSON**. The project expects the standard COCO dataset structure:
 
 ```
 data/
   images/
-    train2017/ ... .jpg
-    val2017/   ... .jpg
+    train2017/
+      - image1.jpg
+      - ...
+    val2017/
+      - image2.jpg
+      - ...
   annotations/
-    instances_train2017.json
-    instances_val2017.json
+    - instances_train2017.json
+    - instances_val2017.json
 ```
 
-The COCO JSON files provide class definitions, object annotations, and image metadata.
-
-YOLO text format is not supported.
+*YOLO text format is not supported.*
 
 ## YOLOv10 Compatibility
 
-Supported models : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `yolov10x`.
+This project supports `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, and `yolov10x` models.
 
- Weight loading
-- Exact loading of all official THU-MIG release weights with the lean implementation. The official repository is not imported at runtime.
+-   **Weight Loading:** Ensures exact loading of all official `THU-MIG/yolov10` release weights without importing the official repository at runtime.
+-   **Validation:** The validation process uses the official YOLOv10 NMS-free top-k decoding on the one-to-one branch to match the reference evaluation setup.
 
-## Validation
+### Validation Results
 
-COCO mAP@0.5:0.95 comparison on val2017:
-
-Note: Validation uses the official YOLOv10 NMS-free top-k decode on the one-to-one branch (no NMS), matching the reference evaluation setup.
+COCO mAP@0.5:0.95 comparison on `val2017`:
 
 | Model    | Official mAP | LeanYOLO mAP | Difference |
-|----------|--------------|--------------|------------|
+|:---------|:-------------|:-------------|:-----------|
 | yolov10n | 0.38480      | 0.38470      | 0.00010    |
 | yolov10s | 0.45866      | 0.46115      | 0.00249    |
 | yolov10m | 0.50999      | 0.50909      | 0.00090    |
@@ -157,63 +137,40 @@ Note: Validation uses the official YOLOv10 NMS-free top-k decode on the one-to-o
 | yolov10l | 0.53018      | 0.52868      | 0.00150    |
 | yolov10x | 0.54231      | 0.54127      | 0.00104    |
 
-mAP@0.5:0.95 is the mean Average Precision (mAP) evaluated at Intersection over Union (IoU) thresholds ranging from 0.5 to 0.95 in steps of 0.05. This metric assesses object detection performance by averaging precision across multiple recall levels and IoU thresholds, providing a comprehensive measure of accuracy for COCO dataset evaluations.
+*mAP@0.5:0.95 is the mean Average Precision over IoU thresholds from 0.5 to 0.95.*
 
+## Transfer Learning Example: Aquarium Dataset
 
-## Ultralytics
+This example demonstrates how to train YOLOv10 on the Kaggle Aquarium dataset.
 
-Ultralytics' is providing user-friendly APIs, pre-trained models, and a large community ecosystem. Ultralytics maintains implementations of YOLOv3 through YOLOv12 in a single repository, preserving the Darknet convention of configuring models with YAML config files even in their PyTorch implementations. While many versions of YOLO are functionally obsolete for most applications, they remain in the Ultralytics repo for historical and research purposes. This backward compatibility approach, while serving R&D needs for exploring new model architectures and conducting comparative studies, makes the official Ultralytics repository more complex and unfamiliar to engineers who primarily work with standard PyTorch patterns and conventions. Also Ultralytics use AGPL-3.0 (requiring open-sourcing of derivative works) with commercial licenses available.
+### 1. Prepare the Dataset
 
-## References
+Unzip the dataset and organize it into a COCO-style directory structure.
 
-Based on the descriptions above, the original YOLO papers are important for completeness.
-
-| Model | Year | Framework | Paper | Repository |
-|-------|------|-----------|-------|------------|
-| YOLOv1 | 2015 | Darknet | [You Only Look Once: Unified, Real-Time Object Detection](https://arxiv.org/abs/1506.02640) | [Repository](https://github.com/pjreddie/darknet) |
-| YOLOv2 | 2016 | Darknet | [YOLO9000: Better, Faster, Stronger](https://arxiv.org/abs/1612.08242) | [Repository](https://github.com/pjreddie/darknet) |
-| YOLOv3 | 2018 | Darknet | [YOLOv3: An Incremental Improvement](https://arxiv.org/abs/1804.02767) | [Repository](https://github.com/pjreddie/darknet) |
-| YOLOv4 | 2020 | Darknet | [YOLOv4: Optimal Speed and Accuracy of Object Detection](https://arxiv.org/abs/2004.10934) | [Repository](https://github.com/AlexeyAB/darknet) |
-| YOLOv5 | 2020 | PyTorch | [Ultralytics YOLOv5 Documentation](https://docs.ultralytics.com/models/yolov5/) | [Repository](https://github.com/ultralytics/yolov5) |
-| PP-YOLO | 2020 | PaddlePaddle | [PP-YOLO: An Effective and Efficient Implementation of Object Detector](https://arxiv.org/abs/2007.12099) | [Repository](https://github.com/PaddlePaddle/PaddleDetection) |
-| YOLOv6 | 2022 | PyTorch | [YOLOv6: A Single-Stage Object Detection Framework for Industrial Applications](https://arxiv.org/abs/2209.02976) | [Repository](https://github.com/meituan/YOLOv6) |
-| YOLOv7 | 2022 | PyTorch | [YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors](https://arxiv.org/abs/2207.02696) | [Repository](https://github.com/WongKinYiu/yolov7) |
-| DAMO-YOLO | 2022 | PyTorch | [DAMO-YOLO: A Report on Real-Time Object Detection Design](https://arxiv.org/abs/2211.15444) | [Repository](https://github.com/tinyvision/DAMO-YOLO) |
-| YOLOv8 | 2023 | PyTorch | [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/models/yolov8/) | [Repository](https://github.com/ultralytics/ultralytics) |
-| YOLO-NAS | 2023 | PyTorch | Deci YOLO-NAS: Neural Architecture Search for Object Detection | [Repository](https://github.com/Deci-AI/super-gradients) |
-| YOLO-World | 2024 | PyTorch | [YOLO-World: Real-Time Open-Vocabulary Object Detection](https://arxiv.org/abs/2401.17270) | [Repository](https://github.com/AILab-CVC/YOLO-World) |
-| YOLOv9 | 2024 | PyTorch | [YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information](https://arxiv.org/abs/2402.13616) | [Repository](https://github.com/WongKinYiu/yolov9) |
-| YOLOv10 | 2024 | PyTorch | [YOLOv10: Real-Time End-to-End Object Detection](https://arxiv.org/abs/2405.14458) | [Repository](https://github.com/THU-MIG/yolov10) |
-| YOLOv11 | 2024 | PyTorch | [Ultralytics YOLOv11 Documentation](https://docs.ultralytics.com/models/yolov11/) | [Repository](https://github.com/ultralytics/ultralytics) |
-| YOLOv12 | 2025 | PyTorch | [YOLOv12: Attention-Centric Real-Time Object Detectors](https://arxiv.org/abs/2502.12524) | [Repository](https://github.com/ultralytics/ultralytics) |
-
-## License
-MIT License — see `LICENSE` for details.
-## Transfer Learning (Aquarium)
-
-Train YOLOv10 on the Kaggle Aquarium dataset (COCO-style):
-
-1) Prepare dataset from local zip (Windows‑friendly; no symlinks):
-
-```
-./.venv/bin/python tools/prepare_acquirium.py --root data/aquarium --zip data/AquariumDataset.zip --clean
+```bash
+python tools/prepare_aquarium.py --root data/aquarium --zip data/AquariumDataset.zip --clean
 ```
 
-This prepares:
+This command creates the following structure:
 ```
 data/aquarium/
-  images/train/ ...
-  images/val/   ...
+  images/
+    train/
+    val/
   train.json
   val.json
 ```
 
-2) Train (best‑practice transfer learning script)
+### 2. Train the Model
 
-Recommended command (CUDA, 50 epochs, 640 resolution, AMP on by default):
+This project provides two training scripts: a best-practice transfer learning script and a simpler baseline trainer.
 
-```
-./.venv/bin/python tools/transfer_learn_aquarium.py \
+**Recommended: Transfer Learning Script**
+
+This script uses AMP, a cosine learning rate scheduler, and gradual unfreezing.
+
+```bash
+python tools/transfer_learn_aquarium.py \
   --root data/aquarium \
   --device cuda \
   --model yolov10m \
@@ -223,16 +180,12 @@ Recommended command (CUDA, 50 epochs, 640 resolution, AMP on by default):
   --batch-size 32 \
   --save-dir runs/transfer/aquarium_yolov10m_640
 ```
+*Note: If you encounter out-of-memory (OOM) errors, try reducing the `--batch-size`.*
 
-Notes:
-- AMP enabled by default; disable with `--no-amp` if needed.
-- Backbone/neck frozen and head reset by default; unfreezes at epoch 5 (configurable).
-- If you see OOM, reduce `--batch-size` (16–24 for 16 GB is typical at 640). 
+**Alternative: Baseline Trainer**
 
-Alternate baseline trainer (simple loop), if you prefer:
-
-```
-./.venv/bin/python tools/train.py \
+```bash
+python tools/train.py \
   --train-images data/aquarium/images/train \
   --train-ann data/aquarium/train.json \
   --val-images data/aquarium/images/val \
@@ -243,44 +196,52 @@ Alternate baseline trainer (simple loop), if you prefer:
   --epochs 20 \
   --batch-size 16 \
   --device cuda \
-  --freeze-backbone \
-  --head-reset \
   --save-dir runs/train/aquarium_n
 ```
 
-3) Inference with your trained checkpoint
+### 3. Run Inference
 
-Use the best epoch from the log (e.g., epoch035.pt), make sure `--model` matches the trained variant:
+Use your trained checkpoint to run inference on the validation set.
 
-```
-./.venv/bin/python tools/infer.py \
+```bash
+python tools/infer.py \
   --source data/aquarium/images/val \
   --model yolov10m \
-  --weights runs/transfer/aquarium_yolov10m_640/epoch035.pt \
+  --weights runs/transfer/aquarium_yolov10m_640/best.pt \
   --imgsz 640 \
   --conf 0.25 \
-  --iou 0.65 \
+  --iou 0.45 \
   --device cuda \
-  --classes-ann data/aquarium/val.json \
-  --save-dir runs/infer/aquarium_yolov10m_640_e35
+  --save-dir runs/infer/aquarium_yolov10m_640_best
 ```
 
-Latest run snapshot (yolov10m, 640, 50 epochs):
-- Best mAP50‑95 ≈ 0.389 at epoch 35, stable plateau ~0.38–0.39.
-- Smooth loss decline; no obvious overfitting. Consider early‑stopping around best epoch.
+## A Note on Ultralytics
 
-```
-./.venv/bin/python tools/val.py \
-  --images data/aquarium/images/val \
-  --ann data/aquarium/val.json \
-  --model yolov10n \
-  --weights runs/train/aquarium_n/ckpt.pt \
-  --imgsz 640 \
-  --device cuda \
-  --save-viz-dir runs/val/aquarium_viz
-```
+The Ultralytics repository provides user-friendly APIs and a large ecosystem for many YOLO versions (YOLOv3-YOLOv12). It uses YAML configuration files, a convention inherited from Darknet. While this approach is valuable for research and backward compatibility, it can add complexity for developers accustomed to standard PyTorch patterns. Additionally, Ultralytics uses the AGPL-3.0 license, which requires derivative works to be open-sourced, with commercial licenses available separately.
 
-Notes:
-- The model normalizes inputs internally (divide by 255). No external scaling needed.
-- Full mAP evaluation (COCO-style) runs after each epoch on the validation set.
-- The training script saves checkpoints per epoch and a final `ckpt.pt`, which can be loaded via `get_model(name, weights="/path/to/ckpt.pt", class_names=...)`.
+## References
+
+For completeness, here is a list of the original YOLO papers and their implementations.
+
+| Model      | Year | Paper                                                                                               | Repository                                               |
+|:-----------|:-----|:----------------------------------------------------------------------------------------------------|:---------------------------------------------------------|
+| YOLOv1     | 2015 | [You Only Look Once: Unified, Real-Time Object Detection](https://arxiv.org/abs/1506.02640)            | [pjreddie/darknet](https://github.com/pjreddie/darknet)     |
+| YOLOv2     | 2016 | [YOLO9000: Better, Faster, Stronger](https://arxiv.org/abs/1612.08242)                               | [pjreddie/darknet](https://github.com/pjreddie/darknet)     |
+| YOLOv3     | 2018 | [YOLOv3: An Incremental Improvement](https://arxiv.org/abs/1804.02767)                               | [pjreddie/darknet](https://github.com/pjreddie/darknet)     |
+| YOLOv4     | 2020 | [YOLOv4: Optimal Speed and Accuracy of Object Detection](https://arxiv.org/abs/2004.10934)            | [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet)     |
+| YOLOv5     | 2020 | [Ultralytics YOLOv5 Docs](https://docs.ultralytics.com/models/yolov5/)                                | [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+| PP-YOLO    | 2020 | [PP-YOLO: An Effective and Efficient Implementation of Object Detector](https://arxiv.org/abs/2007.12099) | [PaddlePaddle/PaddleDetection](https://github.com/PaddlePaddle/PaddleDetection) |
+| YOLOv6     | 2022 | [YOLOv6: A Single-Stage Object Detection Framework for Industrial Applications](https://arxiv.org/abs/2209.02976) | [meituan/YOLOv6](https://github.com/meituan/YOLOv6)         |
+| YOLOv7     | 2022 | [YOLOv7: Trainable bag-of-freebies...](https://arxiv.org/abs/2207.02696)                               | [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7)   |
+| DAMO-YOLO  | 2022 | [DAMO-YOLO: A Report on Real-Time Object Detection Design](https://arxiv.org/abs/2211.15444)           | [tinyvision/DAMO-YOLO](https://github.com/tinyvision/DAMO-YOLO) |
+| YOLOv8     | 2023 | [Ultralytics YOLOv8 Docs](https://docs.ultralytics.com/models/yolov8/)                                | [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) |
+| YOLO-NAS   | 2023 | [Deci YOLO-NAS: Neural Architecture Search for Object Detection](https://github.com/Deci-AI/super-gradients) | [Deci-AI/super-gradients](https://github.com/Deci-AI/super-gradients) |
+| YOLO-World | 2024 | [YOLO-World: Real-Time Open-Vocabulary Object Detection](https://arxiv.org/abs/2401.17270)            | [AILab-CVC/YOLO-World](https://github.com/AILab-CVC/YOLO-World) |
+| YOLOv9     | 2024 | [YOLOv9: Learning What You Want to Learn...](https://arxiv.org/abs/2402.13616)                         | [WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9)   |
+| YOLOv10    | 2024 | [YOLOv10: Real-Time End-to-End Object Detection](https://arxiv.org/abs/2405.14458)                      | [THU-MIG/yolov10](https://github.com/THU-MIG/yolov10)       |
+| YOLOv11    | 2024 | [Ultralytics YOLOv11 Docs](https://docs.ultralytics.com/models/yolov11/)                                | [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) |
+| YOLOv12    | 2025 | [YOLOv12: Attention-Centric Real-Time Object Detectors](https://arxiv.org/abs/2502.12524)              | [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) |
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
