@@ -54,7 +54,7 @@ import torch.nn as nn
 
 from .backbone import YOLOv10Backbone
 from .neck import YOLOv10Neck
-from .head_v10 import V10Detect
+from .head import V10Detect
 from .postprocess import decode_v10_predictions
 
 

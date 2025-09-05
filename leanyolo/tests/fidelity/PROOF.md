@@ -23,7 +23,7 @@ Detect Head (YOLOv10)
 - DFL expectation per side s ∈ {l,t,r,b}:
   - p_s = softmax(D_s) ∈ R^{B×R×A}, where A=H·W.
   - E[s] = Σ_{i=0}^{R-1} i · p_s[i].
-  - Our implementation computes this exactly via a fixed index buffer and a matmul‑equivalent sum; see leanyolo/models/yolov10/head_v10.py:DFL.
+  - Our implementation computes this exactly via a fixed index buffer and a matmul‑equivalent sum; see leanyolo/models/yolov10/head.py:DFL.
 - Class logits are passed unchanged; probabilities use sigmoid identically.
 
 Decode/NMS
@@ -37,4 +37,3 @@ Weight Mapping Soundness
 
 Conclusion
 - Given identical inputs, mapped weights, and CPU eval mode, each module yields the same function. Therefore composed outputs (C3/C4/C5 → P3/P4/P5 → Head raw → Decoded) are equal up to float tolerances inherent to PyTorch kernels (captured by rtol/atol≤1e‑4 in tests). The parity suite demonstrates this across n/s/m/l/x.
-
