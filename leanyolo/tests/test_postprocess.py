@@ -1,6 +1,6 @@
 import torch
 
-from leanyolo.utils.postprocess import decode_predictions
+from leanyolo.models.yolov10.postprocess import decode_v10_official_topk as decode_predictions
 
 
 def test_decode_predictions_basic():
