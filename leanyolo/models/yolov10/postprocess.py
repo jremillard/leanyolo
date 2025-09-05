@@ -170,7 +170,11 @@ def decode_v10_official_topk(
     num_classes: int,
     strides: Sequence[int] = (8, 16, 32),
     max_det: int = 300,
-) -> List[torch.Tensor]:
+    # Back-compat kwargs (ignored for top-k decode)
+    conf_thresh: float | None = None,
+    iou_thresh: float | None = None,
+    img_size: Tuple[int, int] | None = None,
+) -> List[List[torch.Tensor]]:
     """Replicate official YOLOv10 eval decoding (no NMS, top‑k by class scores).
 
     This mirrors ultralytics v10Detect._inference + postprocess:
@@ -187,9 +191,9 @@ def decode_v10_official_topk(
         max_det: maximum elements to keep after top‑k
 
     Returns:
-        List of length B with tensors of shape [min(max_det, A), 6]
-        formatted as [x, y, w, h, score, cls]. This matches the official
-        postprocess output used for NMS‑free evaluation.
+        List (len B) of single‑element lists with tensors of shape
+        [min(max_det, A), 6] formatted as [x1, y1, x2, y2, score, cls].
+        Nested list structure matches the NMS decode API for compatibility.
     """
     assert len(preds) == len(strides)
     b = preds[0].shape[0]
@@ -238,4 +242,4 @@ def decode_v10_official_topk(
     scores, index = scores.flatten(1).topk(min(max_det, A))
     i = torch.arange(B)[..., None]
     final = torch.cat([boxes[i, index // nc], scores[..., None], (index % nc)[..., None].float()], dim=-1)
-    return [final[i] for i in range(B)]
+    return [[final[i]] for i in range(B)]

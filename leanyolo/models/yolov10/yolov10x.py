@@ -49,7 +49,7 @@ import torch.nn as nn
 from .backbone import YOLOv10Backbone
 from .neck import YOLOv10Neck
 from .head import V10Detect
-from .postprocess import decode_v10_predictions
+from .postprocess import decode_v10_official_topk as decode_v10_predictions
 
 
 class YOLOv10x(nn.Module):
@@ -104,9 +104,14 @@ class YOLOv10x(nn.Module):
             x = x / self.input_divide
         c3, c4, c5 = self.backbone(x)
         p3, p4, p5 = self.neck(c3, c4, c5)
-        return self.head((p3, p4, p5))
+        if self.training:
+            return self.head((p3, p4, p5))
+        one2many = self.head((p3, p4, p5))
+        one2one = self.head.forward_feat((p3, p4, p5), self.head.one2one_cv2, self.head.one2one_cv3)
+        self._eval_branches = {"one2many": one2many, "one2one": one2one}
+        return one2many
 
-    def decode_forward(self, raw: List[torch.Tensor]):
+    def decode_forward(self, raw: List[torch.Tensor] | dict):
         """Decode raw head outputs into final detections per image.
 
         Returns: List[List[Tensor]] with one entry per image; each inner tensor
@@ -116,18 +121,13 @@ class YOLOv10x(nn.Module):
         - score: confidence score (max class probability)
         - cls: class index (float; cast to int as needed)
         """
-        conf = getattr(self, "post_conf_thresh", 0.25)
-        iou = getattr(self, "post_iou_thresh", 0.45)
-        mdet = getattr(self, "post_max_det", 300)
         strides = (8, 16, 32)
-        _, _, h3, w3 = raw[0].shape
-        ih, iw = h3 * strides[0], w3 * strides[0]
+        if isinstance(raw, dict):
+            seq = raw.get("one2one", raw.get("one2many"))
+        else:
+            seq = getattr(self, "_eval_branches", {}).get("one2one", raw)
         return decode_v10_predictions(
-            raw,
+            seq,
             num_classes=len(self.class_names),
             strides=strides,
-            conf_thresh=conf,
-            iou_thresh=iou,
-            max_det=mdet,
-            img_size=(ih, iw),
         )

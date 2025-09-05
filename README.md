@@ -146,14 +146,16 @@ Supported models : `yolov10n`, `yolov10s`, `yolov10m`, `yolov10b`, `yolov10l`, `
 
 COCO mAP@0.5:0.95 comparison on val2017:
 
+Note: Validation uses the official YOLOv10 NMS-free top-k decode on the one-to-one branch (no NMS), matching the reference evaluation setup.
+
 | Model    | Official mAP | LeanYOLO mAP | Difference |
 |----------|--------------|--------------|------------|
-| yolov10n | 0.38480      | 0.38115      | 0.00365    |
-| yolov10s | 0.45866      | 0.45344      | 0.00522    |
-| yolov10m | 0.50999      | 0.49910      | 0.01089    |
-| yolov10b | 0.52303      | 0.51141      | 0.01162    |
-| yolov10l | 0.53018      | 0.51902      | 0.01116    |
-| yolov10x | 0.54231      | 0.52934      | 0.01297    |
+| yolov10n | 0.38480      | 0.38470      | 0.00010    |
+| yolov10s | 0.45866      | 0.46115      | 0.00249    |
+| yolov10m | 0.50999      | 0.50909      | 0.00090    |
+| yolov10b | 0.52303      | 0.52188      | 0.00115    |
+| yolov10l | 0.53018      | 0.52868      | 0.00150    |
+| yolov10x | 0.54231      | 0.54127      | 0.00104    |
 
 mAP@0.5:0.95 is the mean Average Precision (mAP) evaluated at Intersection over Union (IoU) thresholds ranging from 0.5 to 0.95 in steps of 0.05. This metric assesses object detection performance by averaging precision across multiple recall levels and IoU thresholds, providing a comprehensive measure of accuracy for COCO dataset evaluations.
 
