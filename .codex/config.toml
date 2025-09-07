@@ -2,8 +2,8 @@
 # This file is used by tools/sqa_runner.py to run the SQA plan with a
 # deterministic profile checked into the repo.
 
-# Default provider is OpenAI; set OPENAI_API_KEY in your environment.
-# You can also override provider base_url via OPENAI_BASE_URL if needed.
+# Default provider is OpenAI using ChatGPT account auth (no API key).
+# You can override the ChatGPT base URL via `chatgpt_base_url` if needed.
 
 [profiles.sqa]
 # Model and behavior
@@ -12,6 +12,8 @@ model_reasoning_effort = "high"
 model_reasoning_summary = "detailed"
 model_verbosity = "high"
 approval_policy = "never"        # no prompts
+preferred_auth_method = "chatgpt" # use ChatGPT account auth, not API keys
+# chatgpt_base_url = "https://chat.openai.com"  # optional override
 
 # Sandbox: write access to workspace and allow outbound network
 sandbox_mode = "workspace-write"
@@ -22,4 +24,3 @@ network_access = true
 # Optional: enable built-in web search tool if desired
 [tools]
 web_search = true
-
