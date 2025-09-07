@@ -6,5 +6,6 @@ matplotlib
 pycocotools
 pytest
 requests
+onnx
 onnxruntime
 pyyaml
