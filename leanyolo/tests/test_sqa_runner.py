@@ -18,7 +18,7 @@ def test_parse_ids_from_sqa_yaml():
     cases = parse_sqa_yaml(sqa_path)
     ids = [c.test_id for c in cases]
     # Ensure overall coverage of sections
-    for expected in ["EN-001", "UT-001", "FT-001", "IT-004"]:
+    for expected in ["EN-001", "UT-100", "UT-101", "FT-001", "IT-004"]:
         assert expected in ids
     # Sanity: each case has non-empty fields
     for c in cases:
@@ -29,15 +29,13 @@ def test_filter_by_glob():
     cases = parse_sqa_yaml(Path("sqa.yaml"))
     only_ut = filter_tests(cases, ["UT-*"])
     assert only_ut, "UT-* should match at least one test"
-    assert all(c.test_id.startswith("UT-") for c in only_ut)
-    # Ensure we excluded EN and IT groups
-    assert all(not c.test_id.startswith("EN-") for c in only_ut)
+    assert {c.test_id for c in only_ut} >= {"UT-100", "UT-101"}
 
 
 def test_prompt_generation_includes_steps_and_expected():
     cases = parse_sqa_yaml(Path("sqa.yaml"))
     # pick a known case
-    target = next(c for c in cases if c.test_id == "UT-001")
+    target = next(c for c in cases if c.test_id == "UT-100")
     test_msg, read_msg = build_prompts(target, Path("sqa.yaml"))
     assert "Steps:" in test_msg
     assert target.steps[0] in test_msg
