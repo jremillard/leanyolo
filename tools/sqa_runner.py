@@ -507,8 +507,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
-        # Fully open by default as requested: no sandbox or approvals
-        default='codex --dangerously-bypass-approvals-and-sandbox exec -C . {combined_q}',
+        # Use local provider with writable workspace and approvals disabled
+        default='codex exec --provider=local --sandbox=workspace-write --approvals=never -C . {combined_q}',
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
             "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}"
