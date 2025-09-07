@@ -3,15 +3,14 @@ tests:
   # 3.0 Environment & Documentation Validation
   - id: EN-001
     category: environment
-    name: Fresh env + imports
+    name: python env is complete
     steps:
       - Remove existing .venv directory
       - python -m venv .venv
-      - ./.venv/bin/python -m pip install --upgrade pip
       - ./.venv/bin/python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
       - ./.venv/bin/python -m pip install -r requirements.txt
       - ./.venv/bin/python tools/check_imports.py
-    expected: Prints "OK" and exits 0; README commands work
+    expected: Prints "OK" and exits 0; all imports are satisfied, no sudo needed.
 
   # 3.1 Unit Tests (consolidated)
   - id: UT-100
@@ -20,6 +19,7 @@ tests:
     steps:
       - Set CUDA_VISIBLE_DEVICES=""
       - ./.venv/bin/python -m pytest -q -m "not fidelity"
+      - ./.venv/bin/python -m pytest -q -m fidelity
     expected: All unit tests pass on CPU (no failures)
 
   - id: UT-101
@@ -28,6 +28,7 @@ tests:
     steps:
       - Ensure at least one CUDA device is visible
       - ./.venv/bin/python -m pytest -q -m "not fidelity"
+      - ./.venv/bin/python -m pytest -q -m fidelity
     expected: All unit tests pass on GPU (no failures)
 
   # 3.2 Functional Tests for Tools
