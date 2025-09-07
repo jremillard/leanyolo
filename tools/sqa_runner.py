@@ -47,6 +47,21 @@ except Exception as e:  # pragma: no cover
     yaml = None
 
 
+# Fixed Codex exec command template (no profiles/config overrides allowed)
+CODEX_CMD_TEMPLATE = (
+    'codex exec '
+    '--model gpt-5 '
+    '--sandbox workspace-write '
+    '--ask-for-approval never '
+    '-c model_reasoning_effort="high" '
+    '-c model_reasoning_summary="detailed" '
+    '-c model_verbosity="high" '
+    '-c preferred_auth_method="chatgpt" '
+    '-c sandbox_workspace_write.network_access=true '
+    '-C . {combined_q}'
+)
+
+
 @dataclasses.dataclass
 class TestCase:
     test_id: str
@@ -461,7 +476,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             run_tests(
                 plan=plan,
                 cases=selected,
-                cmd_template=args.cmd,
+                cmd_template=CODEX_CMD_TEMPLATE,
                 sqa_plan_path=sqa_plan_path,
                 outdir=outdir,
                 concurrency=args.concurrency,
@@ -476,7 +491,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 130
 
     if not args.dry_run:
-        write_report(results, run_root, plan, args.cmd)
+        write_report(results, run_root, plan, CODEX_CMD_TEMPLATE)
         # Non-zero exit if any failure/error
         bad = [r for r in results if r.get("status") in {"FAILED", "ERROR"}]
         return 1 if bad else 0
@@ -505,27 +520,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--tests", default=None, help="Comma-separated test IDs or globs (e.g., UT-001,UT-002 or UT-*)")
     p_run.add_argument("--concurrency", type=int, default=2, help="Number of concurrent Codex commands")
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
-    p_run.add_argument(
-        "--cmd",
-        # Default to explicit CLI config per docs; avoids reliance on external profiles
-        default=(
-            'CODEX_HOME=.codex codex exec '
-            '--model gpt-5 '
-            '--sandbox workspace-write '
-            '--ask-for-approval never '
-            '-c model_reasoning_effort="high" '
-            '-c model_reasoning_summary="detailed" '
-            '-c model_verbosity="high" '
-            '-c preferred_auth_method="chatgpt" '
-            '-c sandbox_workspace_write.network_access=true '
-            '-C . {combined_q}'
-        ),
-        help=(
-            "Command template with placeholders: {test}, {read}, {combined}, "
-            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}. "
-            "Uses CLI config flags per docs; requires `codex login chatgpt` once."
-        ),
-    )
+    # No ability to override the Codex command; flags are fixed in the runner
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
     p_run.add_argument("--outdir", default="runs/sqa", help="Base output directory")
     p_run.add_argument("--success-regex", default=None, help="Regex to detect success in stdout")
