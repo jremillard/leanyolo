@@ -5,19 +5,19 @@ concurrency, structured logging, and rollup reporting.
 
 Usage examples:
   - List all discovered tests from sqa.yaml:
-      ./\.venv/bin/python tools/sqa_runner.py list --plan-file sqa.yaml
+      ./.venv/bin/python tools/sqa_runner.py list --plan-file sqa.yaml
 
   - Run all tests with default concurrency (2):
-      ./\.venv/bin/python tools/sqa_runner.py run --plan main
+      ./.venv/bin/python tools/sqa_runner.py run --plan main
 
   - Run only unit-test series in parallel (4 workers):
-      ./\.venv/bin/python tools/sqa_runner.py run --plan main --tests UT-* --concurrency 4
+      ./.venv/bin/python tools/sqa_runner.py run --plan main --tests UT-* --concurrency 4
 
   - Dry run to see the commands but not execute Codex:
-      ./\.venv/bin/python tools/sqa_runner.py run --plan main --dry-run --tee
+      ./.venv/bin/python tools/sqa_runner.py run --plan main --dry-run --tee
 
   - Reset (delete) run artifacts for a plan:
-      ./\.venv/bin/python tools/sqa_runner.py reset --plan main --yes
+      ./.venv/bin/python tools/sqa_runner.py reset --plan main --yes
 
 Design notes:
   - Reads test matrix from sqa.yaml with schema: { version, tests: [ {id, name, steps[], expected} ] }
@@ -37,7 +37,7 @@ import os
 import re
 import shlex
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
@@ -154,7 +154,7 @@ def determine_status(stdout_text: str, exit_code: int, success_regex: Optional[s
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 async def _stream_pipe(reader: asyncio.StreamReader, sink, tee: bool, prefix: str = ""):
@@ -507,8 +507,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
-        # Use local provider with writable workspace and approvals disabled
-        default='codex exec --provider=local --sandbox=workspace-write --approvals=never -C . {combined_q}',
+        # Default to a local profile; users can override with --cmd
+        default='codex exec --profile local {combined_q}',
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
             "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}"
