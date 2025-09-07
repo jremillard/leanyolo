@@ -1,0 +1,212 @@
+version: 1
+tests:
+  # 3.0 Environment & Documentation Validation
+  - id: EN-001
+    category: environment
+    name: Fresh env + imports
+    steps:
+      - Remove existing .venv directory
+      - python -m venv .venv
+      - ./.venv/bin/python -m pip install --upgrade pip
+      - ./.venv/bin/python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+      - ./.venv/bin/python -m pip install -r requirements.txt
+      - ./.venv/bin/python tools/check_imports.py
+    expected: Prints "OK" and exits 0; README commands work
+
+  # 3.1 Unit Tests
+  - id: UT-001
+    category: unit
+    name: get_model rejects unknown weight keys
+    steps:
+      - Call get_model("yolov10s", weights="DEFAULT")
+    expected: Raises ValueError
+
+  - id: UT-002
+    category: unit
+    name: get_model accepts None
+    steps:
+      - Call get_model with weights=None and COCO class names
+    expected: Model returns without error; class_names length is 80
+
+  - id: UT-003
+    category: unit
+    name: Input normalization broadcast & validation
+    steps:
+      - Call with input_norm_subtract=[10.0]
+      - Call with mismatched input_norm_subtract/input_norm_divide lengths
+    expected: Broadcast to 3 channels; mismatched lengths raise ValueError
+
+  - id: UT-004
+    category: unit
+    name: Plain state-dict load
+    steps:
+      - Save model state_dict to a temporary file
+      - Reload with get_model from the saved state_dict
+    expected: Parameters match original
+
+  - id: UT-005
+    category: unit
+    name: Incompatible state-dict detection
+    steps:
+      - Save a model checkpoint with 3 classes
+      - Load into a 2-class model
+    expected: Raises ValueError mentioning incompatibility
+
+  - id: UT-006
+    category: unit
+    name: Weight download
+    steps:
+      - Run pytest leanyolo/tests/test_weights_download.py
+    expected: Pretrained weights downloaded or pulled from cache
+
+  - id: UT-007
+    category: unit
+    name: Safe unpickle
+    steps:
+      - Run pytest leanyolo/tests/test_weights_safe_unpickle.py
+    expected: Loading malicious pickle raises ValueError
+
+  - id: UT-008
+    category: unit
+    name: State-dict roundtrip
+    steps:
+      - Run pytest leanyolo/tests/test_state_dict_roundtrip.py
+    expected: Save→load yields identical parameters
+
+  - id: UT-009
+    category: unit
+    name: Letterbox transformations
+    steps:
+      - Run pytest leanyolo/tests/test_letterbox.py
+    expected: Output sizes, gains, and pads match formulas
+
+  - id: UT-010
+    category: unit
+    name: Loss calculations
+    steps:
+      - Run pytest leanyolo/tests/test_losses_v10.py
+    expected: Expected tensor shapes/values; no NaNs
+
+  - id: UT-011
+    category: unit
+    name: Post-processing / NMS
+    steps:
+      - Run pytest leanyolo/tests/test_postprocess.py
+    expected: Correct number and order of boxes
+
+  - id: UT-012
+    category: unit
+    name: Remap official weights
+    steps:
+      - Run pytest leanyolo/tests/test_remap.py
+    expected: Remapped weights equal references
+
+  - id: UT-013
+    category: unit
+    marker: fidelity
+    name: Layer parity (backbone/neck/head)
+    steps:
+      - Run pytest with marker "fidelity" for layer parity
+    expected: Outputs match reference tensors
+
+  - id: UT-014
+    category: unit
+    name: Synthetic evaluation
+    steps:
+      - Run pytest leanyolo/tests/test_eval_synthetic.py
+    expected: mAP numbers consistent with snapshot
+
+  - id: UT-015
+    category: unit
+    name: Official remap parity
+    steps:
+      - Run pytest leanyolo/tests/test_remap_official.py
+    expected: Model layers match official parameters
+
+  # 3.2 Functional Tests for Tools
+  - id: FT-001
+    category: functional
+    name: tools/prepare_aquarium.py
+    steps:
+      - Run tools/prepare_aquarium.py with sample Aquarium ZIP
+    expected: COCO-style folder structure produced
+
+  - id: FT-002
+    category: functional
+    name: tools/train.py
+    steps:
+      - Train on a small dataset for 1 epoch with --batch-size 2
+    expected: Checkpoint and log files appear in runs/train/*
+
+  - id: FT-003
+    category: functional
+    name: tools/val.py
+    steps:
+      - Validate pretrained model on a small dataset
+    expected: JSON results and console summary generated
+
+  - id: FT-004
+    category: functional
+    name: tools/infer.py
+    steps:
+      - Run on dog.jpg with pretrained weights
+    expected: Output image saved to runs/infer/*; console lists detections
+
+  - id: FT-005
+    category: functional
+    name: tools/transfer_learn_aquarium.py
+    steps:
+      - Train for 3 epochs on Aquarium data
+    expected: Log shows decreasing loss; new checkpoint saved
+
+  - id: FT-006
+    category: functional
+    name: tools/download_all_pretrained.py
+    steps:
+      - Execute tools/download_all_pretrained.py without arguments
+    expected: All six YOLOv10 weight files downloaded
+
+  - id: FT-007
+    category: functional
+    name: tools/convert_official_weights.py
+    steps:
+      - Convert official checkpoint to lean format
+      - Load converted .pt with get_model
+    expected: Converted .pt loads successfully
+
+  # 3.3 Integration Tests (Full Cycle)
+  - id: IT-001
+    category: integration
+    name: Baseline train→val→infer
+    steps:
+      - Prepare dataset
+      - Run tools/train.py for 1–2 epochs
+      - Run tools/val.py
+      - Run tools/infer.py on sample image
+    expected: Training completes; validation JSON shows expected mAP; inference outputs annotated image
+
+  - id: IT-002
+    category: integration
+    name: Transfer learning loop
+    steps:
+      - Run tools/prepare_aquarium.py
+      - Run tools/transfer_learn_aquarium.py for ≥5 epochs
+      - Run tools/val.py
+    expected: Validation mAP improves vs. baseline recorded in IT-001
+
+  - id: IT-003
+    category: integration
+    name: Weight conversion + evaluation
+    steps:
+      - Convert official weights to lean format
+      - Load with tools/val.py
+      - Check mAP parity vs official results
+    expected: mAP within ±0.5 of official reference
+
+  - id: IT-004
+    category: integration
+    name: Map parity checker
+    steps:
+      - Run tools/check_map_parity.py after inference and validation
+    expected: Report indicates parity across model sizes
+

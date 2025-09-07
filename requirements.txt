@@ -7,3 +7,4 @@ pycocotools
 pytest
 requests
 onnxruntime
+pyyaml

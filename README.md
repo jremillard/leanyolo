@@ -45,7 +45,7 @@ YOLO (You Only Look Once) is a family of real-time object detection algorithms i
 
 ## Testing
 
-See [sqa.md](sqa.md) for the full Software Quality Assurance plan, including environment validation, unit tests, functional tool checks, and integration scenarios.
+See `sqa.yaml` for the full Software Quality Assurance plan, including environment validation, unit tests, functional tool checks, and integration scenarios.
 
 ## Python API
 

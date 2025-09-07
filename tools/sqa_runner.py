@@ -4,8 +4,8 @@ SQA runner for lean-YOLO: runs one SQA test per Codex CLI invocation, with
 concurrency, structured logging, and rollup reporting.
 
 Usage examples:
-  - List all discovered tests from sqa.md:
-      ./\.venv/bin/python tools/sqa_runner.py list --plan-file sqa.md
+  - List all discovered tests from sqa.yaml:
+      ./\.venv/bin/python tools/sqa_runner.py list --plan-file sqa.yaml
 
   - Run all tests with default concurrency (2):
       ./\.venv/bin/python tools/sqa_runner.py run --plan main
@@ -20,12 +20,11 @@ Usage examples:
       ./\.venv/bin/python tools/sqa_runner.py reset --plan main --yes
 
 Design notes:
-  - Reads test matrix from a markdown table in sqa.md with columns:
-    ID | Test Point | Steps | Expected Result
+  - Reads test matrix from sqa.yaml with schema: { version, tests: [ {id, name, steps[], expected} ] }
   - Builds two messages per test: the concrete steps to run, and an instruction to
-    read sqa.md for compliance.
+    read sqa.yaml for compliance.
   - Runs an external Codex CLI command template per test with placeholders filled.
-  - Only stdlib is used; unit tests cover parsing and status detection.
+  - Only stdlib plus PyYAML (safe_load) is used; unit tests cover parsing and status detection.
 """
 from __future__ import annotations
 
@@ -42,21 +41,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+try:
+    import yaml  # type: ignore
+except Exception as e:  # pragma: no cover
+    yaml = None
+
 
 @dataclasses.dataclass
 class TestCase:
     test_id: str
-    test_point: str
-    steps: str
+    name: str
+    steps: List[str]
     expected: str
 
 
-TABLE_HEADER_RE = re.compile(
-    r"^\|\s*ID\s*\|\s*(?:Test\s*Point|Utility|Scenario)\s*\|\s*Steps\s*\|\s*Expected\s*Result\s*\|\s*$",
-    re.IGNORECASE,
-)
-TABLE_SEP_RE = re.compile(r"^\|\s*-+\s*\|")
-TEST_ID_RE = re.compile(r"([A-Z]{2}-\d{3})")
+TEST_ID_RE = re.compile(r"^[A-Z]{2}-\d{3}$")
 
 
 def _strip_md(s: str) -> str:
@@ -70,56 +69,23 @@ def _strip_md(s: str) -> str:
     return s.strip()
 
 
-def parse_sqa_md(path: Path) -> List[TestCase]:
-    """Parse sqa.md and return a list of TestCase parsed from tables.
-
-    Assumes tables include header: ID | Test Point | Steps | Expected Result
-    and multiple such tables can appear in the document.
-    """
-    text = path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-
+def parse_sqa_yaml(path: Path) -> List[TestCase]:
+    if yaml is None:
+        raise SystemExit("PyYAML is required to parse sqa.yaml. Please install pyyaml.")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    tests = data.get("tests", []) if isinstance(data, dict) else []
     cases: List[TestCase] = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if TABLE_HEADER_RE.match(line):
-            # Expect a separator line next
-            i += 1
-            if i >= len(lines) or not TABLE_SEP_RE.search(lines[i]):
-                # Not a valid table; skip
-                continue
-            i += 1
-            # Consume table rows until a blank line or non-table line
-            while i < len(lines):
-                row = lines[i]
-                if not row.strip() or not row.strip().startswith("|"):
-                    break
-                # Split by pipes; keep things simple as plan text likely safe
-                parts = [p.strip() for p in row.strip().split("|")][1:-1]
-                if len(parts) < 4:
-                    i += 1
-                    continue
-                raw_id, test_point, steps, expected = parts[:4]
-                # Clean markdown wrappers
-                tid = _strip_md(raw_id)
-                m = TEST_ID_RE.search(tid)
-                if not m:
-                    i += 1
-                    continue
-                test_id = m.group(1)
-                cases.append(
-                    TestCase(
-                        test_id=test_id,
-                        test_point=_strip_md(test_point),
-                        steps=_strip_md(steps),
-                        expected=_strip_md(expected),
-                    )
-                )
-                i += 1
-            # Do not skip i increment here; loop continues
-        else:
-            i += 1
+    for t in tests:
+        tid = t.get("id")
+        name = t.get("name", "")
+        steps = t.get("steps", [])
+        expected = t.get("expected", "")
+        if not tid or not TEST_ID_RE.match(tid):
+            continue
+        if not isinstance(steps, list):
+            # Allow a single string; convert to list
+            steps = [str(steps)]
+        cases.append(TestCase(test_id=tid, name=str(name), steps=[str(s) for s in steps], expected=str(expected)))
     return cases
 
 
@@ -143,16 +109,17 @@ def filter_tests(cases: Sequence[TestCase], patterns: Optional[Sequence[str]]) -
     return uniq
 
 
-def build_prompts(case: TestCase, sqa_md_path: Path) -> Tuple[str, str]:
+def build_prompts(case: TestCase, sqa_plan_path: Path) -> Tuple[str, str]:
+    steps_str = " -> ".join(case.steps)
     test_msg = (
-        f"Run SQA test {case.test_id} – {case.test_point}. "
-        f"Steps: {case.steps}. "
+        f"Run SQA test {case.test_id} – {case.name}. "
+        f"Steps: {steps_str}. "
         "Run commands from the repository root. "
         "Save outputs in place and summarize the result clearly. "
         "When done, print a final line: TEST STATUS: PASSED or FAILED."
     )
     read_msg = (
-        f"Read {sqa_md_path}. Confirm steps and expected result align for {case.test_id} "
+        f"Read {sqa_plan_path}. Confirm steps and expected result align for {case.test_id} "
         f"and note any deviation. Expected Result: {case.expected}."
     )
     return test_msg, read_msg
@@ -222,7 +189,7 @@ async def run_one_test(
     plan: str,
     case: TestCase,
     cmd_template: str,
-    sqa_md_path: Path,
+    sqa_plan_path: Path,
     run_root: Path,
     timeout: int,
     tee: bool,
@@ -234,7 +201,7 @@ async def run_one_test(
         _rm_tree(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
 
-    test_msg, read_msg = build_prompts(case, sqa_md_path)
+    test_msg, read_msg = build_prompts(case, sqa_plan_path)
     # Write prompt and command template
     (test_dir / "prompt.txt").write_text(
         f"TEST MESSAGE:\n{test_msg}\n\nREAD MESSAGE:\n{read_msg}\n", encoding="utf-8"
@@ -251,8 +218,8 @@ async def run_one_test(
         "combined_q": shlex.quote(combined_msg),
         "plan_id": plan,
         "test_id": case.test_id,
-        "sqa_md_path": str(sqa_md_path),
-        "plan_dir": str(sqa_md_path.parent),
+        "sqa_plan_path": str(sqa_plan_path),
+        "plan_dir": str(sqa_plan_path.parent),
     }
     try:
         cmd_str = cmd_template.format(**template_ctx)
@@ -327,7 +294,7 @@ async def run_tests(
     plan: str,
     cases: Sequence[TestCase],
     cmd_template: str,
-    sqa_md_path: Path,
+    sqa_plan_path: Path,
     outdir: Path,
     concurrency: int,
     timeout: int,
@@ -339,11 +306,11 @@ async def run_tests(
     run_root = outdir / plan
     run_root.mkdir(parents=True, exist_ok=True)
     # Record sqa.md path for traceability
-    (run_root / "sqa_md_path.txt").write_text(str(sqa_md_path) + "\n", encoding="utf-8")
+    (run_root / "sqa_plan_path.txt").write_text(str(sqa_plan_path) + "\n", encoding="utf-8")
 
     if dry_run:
         for c in cases:
-            test_msg, read_msg = build_prompts(c, sqa_md_path)
+            test_msg, read_msg = build_prompts(c, sqa_plan_path)
             combined_msg = f"{test_msg}\n\n{read_msg}"
             template_ctx = {
                 "test": test_msg,
@@ -354,8 +321,8 @@ async def run_tests(
                 "combined_q": shlex.quote(combined_msg),
                 "plan_id": plan,
                 "test_id": c.test_id,
-                "sqa_md_path": str(sqa_md_path),
-                "plan_dir": str(sqa_md_path.parent),
+                "sqa_plan_path": str(sqa_plan_path),
+                "plan_dir": str(sqa_plan_path.parent),
             }
             cmd_str = cmd_template.format(**template_ctx)
             print(f"[DRY-RUN] {c.test_id}: {cmd_str}")
@@ -371,7 +338,7 @@ async def run_tests(
                 plan=plan,
                 case=c,
                 cmd_template=cmd_template,
-                sqa_md_path=sqa_md_path,
+                sqa_plan_path=sqa_plan_path,
                 run_root=run_root,
                 timeout=timeout,
                 tee=tee,
@@ -430,11 +397,11 @@ def write_report(results: Sequence[dict], run_root: Path, plan: str, cmd_templat
 def cmd_list(args: argparse.Namespace) -> int:
     path = Path(args.plan_file)
     if not path.exists():
-        print(f"sqa.md not found at: {path}", file=sys.stderr)
+        print(f"sqa.yaml not found at: {path}", file=sys.stderr)
         return 2
-    cases = parse_sqa_md(path)
+    cases = parse_sqa_yaml(path)
     for c in cases:
-        print(f"{c.test_id}\t{c.test_point}")
+        print(f"{c.test_id}\t{c.name}")
     return 0
 
 
@@ -461,14 +428,14 @@ def cmd_reset(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     plan = args.plan
-    sqa_md_path = Path(args.plan_file)
-    if not sqa_md_path.exists():
-        print(f"sqa.md not found at: {sqa_md_path}", file=sys.stderr)
+    sqa_plan_path = Path(args.plan_file)
+    if not sqa_plan_path.exists():
+        print(f"sqa.yaml not found at: {sqa_plan_path}", file=sys.stderr)
         return 2
 
-    cases = parse_sqa_md(sqa_md_path)
+    cases = parse_sqa_yaml(sqa_plan_path)
     if not cases:
-        print("No tests discovered in sqa.md. Ensure it has the expected table headers.", file=sys.stderr)
+        print("No tests discovered in sqa.yaml.", file=sys.stderr)
         return 2
 
     patterns = []
@@ -495,7 +462,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 plan=plan,
                 cases=selected,
                 cmd_template=args.cmd,
-                sqa_md_path=sqa_md_path,
+                sqa_plan_path=sqa_plan_path,
                 outdir=outdir,
                 concurrency=args.concurrency,
                 timeout=args.timeout,
@@ -521,8 +488,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     # list
-    p_list = sub.add_parser("list", help="List discovered test IDs from sqa.md")
-    p_list.add_argument("--plan-file", default="sqa.md", help="Path to sqa.md file")
+    p_list = sub.add_parser("list", help="List discovered test IDs from sqa.yaml")
+    p_list.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_list.set_defaults(func=cmd_list)
 
     # reset
@@ -533,18 +500,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_reset.set_defaults(func=cmd_reset)
 
     # run
-    p_run = sub.add_parser("run", help="Run tests from sqa.md via Codex CLI")
+    p_run = sub.add_parser("run", help="Run tests from sqa.yaml via Codex CLI")
     p_run.add_argument("--plan", required=True, help="Required plan label for outputs")
     p_run.add_argument("--tests", default=None, help="Comma-separated test IDs or globs (e.g., UT-001,UT-002 or UT-*)")
     p_run.add_argument("--concurrency", type=int, default=2, help="Number of concurrent Codex commands")
-    p_run.add_argument("--plan-file", default="sqa.md", help="Path to sqa.md file")
+    p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
         # Fully open by default as requested: no sandbox or approvals
         default='codex --dangerously-bypass-approvals-and-sandbox exec -C . {combined_q}',
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
-            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_md_path}, {plan_dir}"
+            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}"
         ),
     )
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
