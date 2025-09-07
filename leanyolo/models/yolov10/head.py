@@ -32,33 +32,21 @@ from .layers import Conv
 class DFL(nn.Module):
     """Distribution Focal Loss projection (logits → expected distances).
 
-    Goal
-    - Convert per‑bin logits for left/top/right/bottom distances into expected
-      continuous offsets for better localization stability.
-
-    Why it works
-    - Modeling box sides as categorical distributions over discrete bins (DFL)
-      captures uncertainty and sub‑pixel precision better than a single scalar
-      regression target; taking the expectation yields smooth, accurate offsets.
-
-    What it does
-    - Initializes a fixed 1×1 conv with weights [0..reg_max‑1] that computes
-      the expectation over softmaxed bin logits. Operates independently per
-      side and per location.
+    Computes the expectation over per-bin logits without learnable parameters,
+    using an einsum with a registered bin-index buffer. This avoids relying on
+    a fixed conv weight implementation and keeps behavior explicit.
     """
     def __init__(self, *, c1: int):
         super().__init__()
-        self.conv = nn.Conv2d(c1, 1, 1, bias=False)
-        x = torch.arange(c1, dtype=torch.float)
-        with torch.no_grad():
-            self.conv.weight.copy_(x.view(1, c1, 1, 1))
-        for p in self.parameters():
-            p.requires_grad_(False)
-        self.c1 = c1
+        self.c1 = int(c1)
+        self.register_buffer("bins", torch.arange(self.c1, dtype=torch.float).view(1, 1, self.c1, 1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         b, _, a = x.shape
-        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(b, 4, a)
+        probs = x.view(b, 4, self.c1, a).softmax(dim=2)
+        # Expectation over bin axis -> [b,4,a]
+        expect = (probs * self.bins).sum(dim=2)
+        return expect
 
 
 class V10Detect(nn.Module):
