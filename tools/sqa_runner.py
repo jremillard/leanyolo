@@ -37,7 +37,7 @@ import os
 import re
 import shlex
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
@@ -154,7 +154,7 @@ def determine_status(stdout_text: str, exit_code: int, success_regex: Optional[s
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 async def _stream_pipe(reader: asyncio.StreamReader, sink, tee: bool, prefix: str = ""):
@@ -507,13 +507,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
-        # Default to using a profile from env; fall back to 'default'
-        # Example to override at runtime: CODEX_PROFILE=openai
-        default='codex exec --profile ${CODEX_PROFILE:-default} -C . {combined_q}',
+        # Default to a known profile name; override with --cmd if needed
+        default='codex exec --profile default -C . {combined_q}',
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
-            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}. "
-            "Set CODEX_PROFILE to pick a Codex CLI profile."
+            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}"
         ),
     )
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
