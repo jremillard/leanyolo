@@ -52,7 +52,7 @@ CODEX_CMD_TEMPLATE = (
     'codex exec '
     '--model gpt-5 '
     '--sandbox workspace-write '
-    '--ask-for-approval never '
+    # exec subcommand always runs with approval_policy=never; flag is not accepted
     '-c model_reasoning_effort="high" '
     '-c model_reasoning_summary="detailed" '
     '-c model_verbosity="high" '
