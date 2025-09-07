@@ -39,6 +39,7 @@ leanyolo/
 - For deterministic snapshots, force CPU: `CUDA_VISIBLE_DEVICES="" ./.venv/bin/python -m pytest -q`.
 - Weights/config: set `LEANYOLO_WEIGHTS_DIR` (offline weights) or ensure `LEANYOLO_CACHE_DIR` is writable.
 - When touching backbone/neck/head/model, add/adjust tests and verify weight loading and a dry forward.
+- Refer to `sqa.md` for the full Software Quality Assurance plan covering environment checks, unit tests, functional tool runs, and integration scenarios.
 
 ## Commit & Pull Request Guidelines
 - Small, focused checkins with rationale; update docs when behavior changes.
