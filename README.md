@@ -94,6 +94,7 @@ This project provides simple and adaptable CLI scripts for common tasks.
 -   `tools/train.py`: A baseline training script demonstrating data loading, loss calculation, scheduling, evaluation, and checkpointing.
 -   `tools/prepare_aquarium.py`: Unzip and arrange the Aquarium dataset into a COCO-style layout.
 -   `tools/transfer_learn_aquarium.py`: An example of transfer learning with AMP, learning rate scheduling, and gradual unfreezing.
+-   `tools/export_onnx.py`: Export YOLOv10 to ONNX with dynamic batch and fixed detections output.
 
 These scripts are designed to be easy to copy and modify for your own projects.
 
@@ -214,6 +215,43 @@ python tools/infer.py \
   --device cuda \
   --save-dir runs/infer/aquarium_yolov10m_640_best
 ```
+
+## Export to ONNX
+
+Export a YOLOv10 model to ONNX with dynamic batch input and fixed‑shape detections per image.
+
+```bash
+# NMS-free (top-k) decode (default)
+python tools/export_onnx.py \
+  --model yolov10s \
+  --weights PRETRAINED_COCO \
+  --imgsz 640 \
+  --max-dets 300 \
+  --opset 19 \
+  --output runs/export/yolov10s.onnx \
+  --decode topk \
+  --validate
+
+# Class-wise NMS inside ONNX graph (uses ONNX NonMaxSuppression)
+python tools/export_onnx.py \
+  --model yolov10s \
+  --weights PRETRAINED_COCO \
+  --imgsz 640 \
+  --max-dets 300 \
+  --opset 19 \
+  --output runs/export/yolov10s_nms.onnx \
+  --decode nms --iou 0.45 --pre-topk 1000
+```
+
+Outputs:
+- Input: `images` with shape `[N, 3, 640, 640]`
+- Outputs:
+  - `detections`: `[N, max_dets, 6]` with rows `[x1,y1,x2,y2,score,cls]`
+  - `num_dets`: `[N]` valid count per image
+
+Notes:
+- Input dtype matches export: float32 (or float16 with `--half`), RGB CHW. The graph applies normalization internally via registered buffers (default is divide‑by‑255). Feed values in [0,255] and do not pre‑divide. If you prefer to feed [0,1] tensors, export a model constructed with `input_norm_divide=[1,1,1]` so the graph skips scaling.
+- Choose `--decode topk` to match official YOLOv10’s NMS‑free evaluation or `--decode nms` for class‑wise NMS using ONNX NonMaxSuppression. In both cases, `--conf` and `--max-dets` are enforced inside the graph.
 
 ## A Note on Ultralytics
 
