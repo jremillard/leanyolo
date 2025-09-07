@@ -9,74 +9,93 @@ from leanyolo.utils.tal import make_anchors, dist2bbox, bbox2dist, TaskAlignedAs
 
 
 def _exp_from_dfl(logits: torch.Tensor, reg_max: int) -> torch.Tensor:
-    b = logits.shape[0]
-    probs = logits.view(b, 4, reg_max).softmax(dim=2)
-    idx = torch.arange(reg_max, device=logits.device, dtype=logits.dtype).view(1, 1, reg_max)
-    return (probs * idx).sum(dim=2)
+    """Return per-side expectation from DFL logits.
+
+    Accepts a tensor shaped [N, 4*reg_max] or [4*reg_max] and returns
+    the expected distances per side [N, 4] (or [4] if input is 1D).
+    """
+    x = logits
+    squeeze_out = False
+    if x.dim() == 1:
+        x = x.unsqueeze(0)
+        squeeze_out = True
+    n = x.shape[0]
+    probs = x.view(n, 4, reg_max).softmax(dim=2)
+    bins = torch.arange(reg_max, device=x.device, dtype=x.dtype).view(1, 1, reg_max)
+    expect = torch.einsum("bcr, bcr -> bc", probs, bins.expand_as(probs))
+    return expect.squeeze(0) if squeeze_out else expect
 
 
 def _dfl_loss(logits: torch.Tensor, target: torch.Tensor, reg_max: int) -> torch.Tensor:
-    """DFL loss supporting vector or batch inputs.
+    """Distribution Focal Loss (sum over items and sides).
 
-    Args:
-        logits: [..., 4*reg_max]
-        target: [..., 4]
-    Returns:
-        scalar DFL loss (sum over items and sides)
+    Supports vector input ([4*reg_max]) or batch input ([N, 4*reg_max]).
+    Targets are fractional bin locations in [0, reg_max-1].
     """
-    if logits.dim() == 1:
-        x = logits.view(4, reg_max)
-        t = target.clamp(0, reg_max - 1 - 1e-3)
-        l = t.floor()
-        u = l + 1
-        wl = (u - t).detach()
-        wu = (t - l).detach()
-        l = l.long()
-        u = u.long()
-        ce = F.cross_entropy
-        loss = ce(x, l, reduction="none") * wl + ce(x, u, reduction="none") * wu
-        return loss.sum()
-    else:
-        N = logits.shape[0]
-        x = logits.view(N, 4, reg_max)
-        t = target.clamp(0, reg_max - 1 - 1e-3).view(N, 4)
-        l = t.floor()
-        u = l + 1
-        wl = (u - t).detach()
-        wu = (t - l).detach()
-        l = l.long()
-        u = u.long()
-        ce = F.cross_entropy
-        # compute per-side losses then sum over sides and batch
-        loss_l = ce(x.view(-1, reg_max), l.view(-1), reduction="none").view(N, 4)
-        loss_u = ce(x.view(-1, reg_max), u.view(-1), reduction="none").view(N, 4)
-        loss = loss_l * wl + loss_u * wu
-        return loss.sum()
+    x = logits
+    t = target
+    if x.dim() == 1:
+        x = x.unsqueeze(0)
+        t = t.unsqueeze(0)
+    n = x.shape[0]
+    x = x.view(n, 4, reg_max)
+    t = t.view(n, 4).clamp(0, reg_max - 1 - 1e-3)
+
+    l = t.floor()  # lower bin
+    u = l + 1      # upper bin
+    wl = (u - t).detach()
+    wu = (t - l).detach()
+    l = l.long()
+    u = u.long()
+
+    logp = F.log_softmax(x, dim=2)
+    # Gather negative log-likelihood at lower/upper bins
+    nll_l = -logp.gather(2, l.unsqueeze(-1)).squeeze(-1)
+    nll_u = -logp.gather(2, u.unsqueeze(-1)).squeeze(-1)
+    loss = (nll_l * wl + nll_u * wu).sum()
+    return loss
 
 
-def _flatten_feats_to_preds(feats: Sequence[torch.Tensor], num_classes: int, reg_max: int) -> Tuple[torch.Tensor, torch.Tensor, List[torch.Tensor]]:
-    B = feats[0].shape[0]
-    cat = []
-    for xi in feats:
-        _, C, H, W = xi.shape
-        cat.append(xi.view(B, C, H * W))
-    y = torch.cat(cat, dim=2)
-    pd, ps = y.split((reg_max * 4, num_classes), dim=1)
-    return pd.permute(0, 2, 1).contiguous(), ps.permute(0, 2, 1).contiguous(), list(feats)
+def _flatten_feats_to_preds(
+    feats: Sequence[torch.Tensor], num_classes: int, reg_max: int
+) -> Tuple[torch.Tensor, torch.Tensor, List[torch.Tensor]]:
+    """Flatten multi-level feature maps to per-anchor predictions.
+
+    Returns:
+        pred_distri: [B, A, 4*reg_max]
+        pred_scores: [B, A, num_classes]
+        feats_out: original feats list (identity) for downstream anchor gen
+    """
+    bsz = feats[0].shape[0]
+    flat = [x.flatten(2) for x in feats]  # [B, C, HW]
+    y = torch.cat(flat, dim=2)
+    box_logits, cls_logits = y.split((reg_max * 4, num_classes), dim=1)
+    return (
+        box_logits.permute(0, 2, 1).contiguous(),
+        cls_logits.permute(0, 2, 1).contiguous(),
+        list(feats),
+    )
 
 
-def _build_targets_from_list(targets: List[Dict[str, torch.Tensor]], max_boxes: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    B = len(targets)
-    device = targets[0]["boxes"].device
-    gt_labels = torch.zeros((B, max_boxes, 1), dtype=torch.long, device=device)
-    gt_bboxes = torch.zeros((B, max_boxes, 4), dtype=torch.float32, device=device)
-    mask_gt = torch.zeros((B, max_boxes, 1), dtype=torch.bool, device=device)
-    for b, t in enumerate(targets):
-        n = min(t["boxes"].shape[0], max_boxes)
-        if n > 0:
-            gt_bboxes[b, :n] = t["boxes"][:n]
-            gt_labels[b, :n, 0] = t["labels"][:n]
-            mask_gt[b, :n, 0] = True
+def _build_targets_from_list(
+    targets: List[Dict[str, torch.Tensor]], max_boxes: int
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Pack a Python list of targets into padded tensors.
+
+    Each target dict has keys 'boxes' [Ni,4] (xyxy) and 'labels' [Ni].
+    Outputs are BxNmax tensors with zero-padding and a boolean mask.
+    """
+    bsz = len(targets)
+    dev = targets[0]["boxes"].device if bsz else torch.device("cpu")
+    gt_labels = torch.zeros((bsz, max_boxes, 1), dtype=torch.long, device=dev)
+    gt_bboxes = torch.zeros((bsz, max_boxes, 4), dtype=torch.float32, device=dev)
+    mask_gt = torch.zeros((bsz, max_boxes, 1), dtype=torch.bool, device=dev)
+    for i, t in enumerate(targets):
+        n = min(int(t["boxes"].shape[0]), max_boxes)
+        if n:
+            gt_bboxes[i, :n].copy_(t["boxes"][:n])
+            gt_labels[i, :n, 0].copy_(t["labels"][:n])
+            mask_gt[i, :n, 0] = True
     return gt_labels, gt_bboxes, mask_gt
 
 
@@ -93,44 +112,57 @@ def _v8_detection_loss(
     lambda_dfl: float = 1.5,
 ) -> Dict[str, torch.Tensor]:
     device = feats[0].device
-    B = feats[0].shape[0]
-    # Flatten predictions
+    bsz = feats[0].shape[0]
+
+    # 1) Flatten raw predictions into per-anchor tensors
     pred_distri, pred_scores, feats_cat = _flatten_feats_to_preds(feats, num_classes, reg_max)
-    # Anchors
-    anchor_points, stride_tensor = make_anchors(feats_cat, strides)
-    # Decode to xyxy in feature space
-    # Convert distributions to expected distances per side
-    B, A, C = pred_distri.shape
-    probs = pred_distri.view(B, A, 4, reg_max).softmax(3)
-    proj = torch.arange(reg_max, dtype=probs.dtype, device=probs.device)
-    exp_ltrb = torch.matmul(probs, proj)  # [B, A, 4]
-    pred_bboxes = dist2bbox(exp_ltrb, anchor_points[None, ...], xywh=False)
-    # Build padded targets
-    max_boxes = max((t["boxes"].shape[0] for t in targets), default=0)
+
+    # 2) Build anchor centers and per-anchor stride
+    anchor_xy, stride_tensor = make_anchors(feats_cat, strides)
+
+    # 3) Convert DFL logits -> expected distances -> decode to xyxy (feature coords)
+    ba, a, _ = pred_distri.shape
+    exp_ltrb = _exp_from_dfl(pred_distri.view(-1, 4 * reg_max), reg_max).view(ba, a, 4)
+    pred_bboxes = dist2bbox(exp_ltrb, anchor_xy[None, ...], xywh=False)
+
+    # 4) Prepare padded GT tensors [B, Nmax, ...]
+    max_boxes = max((int(t["boxes"].shape[0]) for t in targets), default=0)
     gt_labels, gt_bboxes, mask_gt = _build_targets_from_list(targets, max_boxes)
-    # Assignment
+
+    # 5) Task-aligned assignment in pixel space (scale predictions and anchors by stride)
     assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=num_classes, alpha=0.5, beta=6.0)
-    target_labels, target_bboxes, target_scores, fg_mask, _ = assigner(
-        pred_scores, pred_bboxes * stride_tensor[None, ...], anchor_points * stride_tensor, gt_labels, gt_bboxes, mask_gt
+    tgt_labels, tgt_bboxes, tgt_scores, fg_mask, _ = assigner(
+        pred_scores,
+        pred_bboxes * stride_tensor[None, ...],
+        anchor_xy * stride_tensor,
+        gt_labels,
+        gt_bboxes,
+        mask_gt,
     )
-    # Normalize target scores sum
-    target_scores_sum = max(target_scores.sum().item(), 1.0)
-    # Classification loss (BCE with logits)
+
+    # 6) Classification loss (BCE with logits), normalized by sum of assigned scores
+    denom = max(tgt_scores.sum().item(), 1.0)
     bce = torch.nn.BCEWithLogitsLoss(reduction="sum")
-    cls_loss = bce(pred_scores, target_scores.to(pred_scores.dtype)) / target_scores_sum
-    # Bbox + DFL for positives
+    cls_loss = bce(pred_scores, tgt_scores.to(pred_scores.dtype)) / denom
+
+    # 7) Regression losses (IoU + DFL) on positives only
     reg_loss = torch.zeros((), device=device)
     if fg_mask.any():
-        target_bboxes = target_bboxes / stride_tensor[None, ...]
-        for b in range(B):
+        # Move targets back to feature space (divide by stride)
+        tgt_bboxes = tgt_bboxes / stride_tensor[None, ...]
+        for b in range(bsz):
             pos = fg_mask[b]
-            if pos.any():
-                iou = _bbox_iou_ciou(pred_bboxes[b][pos], target_bboxes[b][pos]).diag()
-                iou_loss = (1.0 - iou).sum() / target_scores_sum
-                t_ltrb = bbox2dist(anchor_points[pos], target_bboxes[b][pos], reg_max - 1)
-                pd = pred_distri[b][pos].view(-1, reg_max * 4)
-                dfl = _dfl_loss(pd, t_ltrb.view(-1, 4), reg_max) / target_scores_sum
-                reg_loss = reg_loss + (lambda_iou * iou_loss + lambda_dfl * dfl)
+            if not pos.any():
+                continue
+            # IoU (CIoU) between predicted and target boxes for positives
+            ious = _bbox_iou_ciou(pred_bboxes[b][pos], tgt_bboxes[b][pos]).diag()
+            iou_term = (1.0 - ious).sum() / denom
+            # DFL term
+            t_ltrb = bbox2dist(anchor_xy[pos], tgt_bboxes[b][pos], reg_max - 1)
+            pd_logits = pred_distri[b][pos].view(-1, reg_max * 4)
+            dfl_term = _dfl_loss(pd_logits, t_ltrb.view(-1, 4), reg_max) / denom
+            reg_loss = reg_loss + (lambda_iou * iou_term + lambda_dfl * dfl_term)
+
     total = lambda_cls * cls_loss + reg_loss
     return {"total": total, "cls": cls_loss, "reg": reg_loss}
 
@@ -154,4 +186,3 @@ def detection_loss_v10(
         return {"total": l_many["total"] + l_one["total"], "cls": l_many["cls"] + l_one["cls"], "reg": l_many["reg"] + l_one["reg"]}
     else:
         return _v8_detection_loss(raw, targets, num_classes=num_classes, reg_max=reg_max, strides=strides, tal_topk=10)
-
