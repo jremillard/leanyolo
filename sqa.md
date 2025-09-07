@@ -17,7 +17,7 @@ Provide repeatable tests that verify correctness and stability of the lean-YOLO 
 ### 3.0 Environment & Documentation Validation
 | ID | Test Point | Steps | Expected Result |
 |----|------------|-------|----------------|
-| **EN-001** | Fresh checkout environment | Clone repo → `python -m venv .venv` → install deps `pip install -r requirements.txt` → run `python tools/check_requirements.py` → follow `README.md` setup commands | All dependencies report "OK"; README instructions match working commands |
+| **EN-001** | Fresh env + imports | Delete `.venv` → `python -m venv .venv` → install torch per README → `./.venv/bin/python -m pip install -r requirements.txt` → `./.venv/bin/python tools/check_imports.py` | Prints `OK` and exits 0; README commands work without using sudo |
 
 ### 3.1 Unit Tests (`pytest -q -m "not fidelity"`)
 | ID | Test Point | Steps | Expected Result |
@@ -64,4 +64,3 @@ Provide repeatable tests that verify correctness and stability of the lean-YOLO 
 ## 4. Maintenance
 - Update this plan when new models, tools, or datasets are added.
 - Ensure `README.md` and `AGENTS.md` reference this SQA plan so contributors know it exists.
-
