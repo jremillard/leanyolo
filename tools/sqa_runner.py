@@ -507,12 +507,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
-        # Default to repo-checked-in profile under ./.codex/config.toml
-        default='CODEX_HOME=.codex codex exec --profile sqa -C . {combined_q}',
+        # Default to explicit CLI config per docs; avoids reliance on external profiles
+        default=(
+            'CODEX_HOME=.codex codex exec '
+            '--model gpt-5 '
+            '--sandbox workspace-write '
+            '--ask-for-approval never '
+            '-c model_reasoning_effort="high" '
+            '-c model_reasoning_summary="detailed" '
+            '-c model_verbosity="high" '
+            '-c preferred_auth_method="chatgpt" '
+            '-c sandbox_workspace_write.network_access=true '
+            '-C . {combined_q}'
+        ),
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
             "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}. "
-            "Uses CODEX_HOME=.codex so this repo's .codex/config.toml is picked up."
+            "Uses CLI config flags per docs; requires `codex login chatgpt` once."
         ),
     )
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
