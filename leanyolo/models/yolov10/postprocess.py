@@ -231,15 +231,31 @@ def decode_v10_official_topk(
     # Decode to xyxy in pixels; dist2bbox expects anchors shape [B,2,A]
     dbox = dist2bbox(dist_all, anc_points, xywh=False, dim=1) * stride_tensor
 
-    # Concatenate and apply the official top‑k selection (no NMS)
-    preds_cat = torch.cat((dbox, cls_all), dim=1).permute(0, 2, 1)  # [B, A, 4+nc]
+    # Concatenate into [B, A, 4+nc] and perform two-stage top‑k without NMS
+    preds_cat = torch.cat((dbox, cls_all), dim=1).permute(0, 2, 1)
     B, A, C = preds_cat.shape
     nc = C - 4
-    boxes, scores = preds_cat.split([4, nc], dim=-1)
-    index = scores.amax(dim=-1).topk(min(max_det, A))[1].unsqueeze(-1)
-    boxes = boxes.gather(dim=1, index=index.repeat(1, 1, 4))
-    scores = scores.gather(dim=1, index=index.repeat(1, 1, nc))
-    scores, index = scores.flatten(1).topk(min(max_det, A))
-    i = torch.arange(B)[..., None]
-    final = torch.cat([boxes[i, index // nc], scores[..., None], (index % nc)[..., None].float()], dim=-1)
+    k = min(max_det, A)
+
+    boxes = preds_cat[..., :4]     # [B, A, 4]
+    scores = preds_cat[..., 4:]    # [B, A, nc]
+
+    # Stage 1: select top‑k anchors by their best class score
+    max_per_anchor, _ = scores.max(dim=-1)                          # [B, A]
+    top_anchor_vals, top_anchor_idx = torch.topk(max_per_anchor, k, dim=1)
+
+    # Gather class score vectors for those anchors using advanced indexing
+    batch_idx = torch.arange(B, device=device).view(B, 1)
+    sel_scores = scores[batch_idx, top_anchor_idx]                   # [B, k, nc]
+
+    # Stage 2: from the selected anchors, take the global top‑k (anchor,class) pairs
+    flat_scores = sel_scores.reshape(B, -1)                          # [B, k*nc]
+    flat_vals, flat_idx = torch.topk(flat_scores, k, dim=1)
+    rel_anchor = (flat_idx // nc)                                    # [B, k]
+    cls_idx = (flat_idx % nc).to(torch.int64)                        # [B, k]
+    final_anchor_idx = top_anchor_idx.gather(1, rel_anchor)          # [B, k]
+
+    # Gather final boxes and assemble output tensor [B, k, 6]
+    final_boxes = boxes[batch_idx, final_anchor_idx]
+    final = torch.cat([final_boxes, flat_vals.unsqueeze(-1), cls_idx.float().unsqueeze(-1)], dim=-1)
     return [[final[i]] for i in range(B)]
