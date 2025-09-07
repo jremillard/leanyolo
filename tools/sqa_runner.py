@@ -507,11 +507,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
     p_run.add_argument(
         "--cmd",
-        # Default to a known profile name; override with --cmd if needed
-        default='codex exec --profile default -C . {combined_q}',
+        # Default to repo-checked-in profile under ./.codex/config.toml
+        default='CODEX_HOME=.codex codex exec --profile sqa -C . {combined_q}',
         help=(
             "Command template with placeholders: {test}, {read}, {combined}, "
-            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}"
+            "{test_q}, {read_q}, {combined_q}, {plan_id}, {test_id}, {sqa_plan_path}, {plan_dir}. "
+            "Uses CODEX_HOME=.codex so this repo's .codex/config.toml is picked up."
         ),
     )
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
