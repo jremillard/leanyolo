@@ -34,47 +34,55 @@ tests:
   # 3.2 Functional Tests for Tools
   - id: FT-001
     category: functional
-    name: tools/prepare_aquarium.py
+    name: prepare_aquarium (basic)
     steps:
-      - Run tools/prepare_aquarium.py with sample Aquarium ZIP
-    expected: COCO-style folder structure produced
+      - Unzip AquariumDataset.zip to raw and prepare to data/aquarium
+      - Run: ./.venv/bin/python tools/prepare_acquirium.py --zip data/AquariumDataset.zip --root data/aquarium --clean
+    expected: COCO-style folder structure produced; train.json/val.json written
 
   - id: FT-002
+    category: functional
+    name: prepare_aquarium (keep extract)
+    steps:
+      - Run: ./.venv/bin/python tools/prepare_acquirium.py --zip data/AquariumDataset.zip --root data/aquarium --clean --keep-extract
+    expected: raw_extracted folder retained after prepare
+
+  - id: FT-003
     category: functional
     name: tools/train.py
     steps:
       - Train on a small dataset for 1 epoch with --batch-size 2
     expected: Checkpoint and log files appear in runs/train/*
 
-  - id: FT-003
+  - id: FT-004
     category: functional
     name: tools/val.py
     steps:
       - Validate pretrained model on a small dataset
     expected: JSON results and console summary generated
 
-  - id: FT-004
+  - id: FT-005
     category: functional
     name: tools/infer.py
     steps:
       - Run on dog.jpg with pretrained weights
     expected: Output image saved to runs/infer/*; console lists detections
 
-  - id: FT-005
+  - id: FT-006
     category: functional
     name: tools/transfer_learn_aquarium.py
     steps:
       - Train for 3 epochs on Aquarium data
     expected: Log shows decreasing loss; new checkpoint saved
 
-  - id: FT-006
+  - id: FT-007
     category: functional
     name: tools/download_all_pretrained.py
     steps:
       - Execute tools/download_all_pretrained.py without arguments
     expected: All six YOLOv10 weight files downloaded
 
-  - id: FT-007
+  - id: FT-008
     category: functional
     name: tools/convert_official_weights.py
     steps:
