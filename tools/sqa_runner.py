@@ -49,27 +49,25 @@ except Exception as e:  # pragma: no cover
 
 # Fixed Codex exec command template (no profiles/config overrides allowed)
 CODEX_CMD_TEMPLATE = (
-    'codex exec '
-    '--model gpt-5 '
-    '--sandbox workspace-write '
+    "codex exec "
+    "--model gpt-5 "
+    "--sandbox workspace-write "
     # exec subcommand always runs with approval_policy=never; flag is not accepted
-    '-c model_reasoning_effort="high" '
-    '-c model_reasoning_summary="detailed" '
-    '-c model_verbosity="high" '
-    '-c preferred_auth_method="chatgpt" '
+    "-c model_reasoning_effort=\"high\" "
+    "-c model_reasoning_summary=\"detailed\" "
+    "-c model_verbosity=\"high\" "
+    "-c preferred_auth_method=\"chatgpt\" "
     # Make child processes non-interactive and avoid pagers/prompts
-    '-c shell_environment_policy.set={ '
-    'CI = "1", '
-    'GIT_TERMINAL_PROMPT = "0", '
-    'PIP_NO_INPUT = "1", '
-    'PIP_DISABLE_PIP_VERSION_CHECK = "1", '
-    'DEBIAN_FRONTEND = "noninteractive", '
-    'APT_LISTCHANGES_FRONTEND = "none", '
-    'PAGER = "cat", GIT_PAGER = "cat", PYTHONPAGER = "cat", '
-    'GIT_EDITOR = "true", EDITOR = "true", VISUAL = "true" '
-    '} '
-    '-c sandbox_workspace_write.network_access=true '
-    '-C . {combined_q}'
+    "-c 'shell_environment_policy.set={{ CI = \"1\", "
+    "GIT_TERMINAL_PROMPT = \"0\", "
+    "PIP_NO_INPUT = \"1\", "
+    "PIP_DISABLE_PIP_VERSION_CHECK = \"1\", "
+    "DEBIAN_FRONTEND = \"noninteractive\", "
+    "APT_LISTCHANGES_FRONTEND = \"none\", "
+    "PAGER = \"cat\", GIT_PAGER = \"cat\", PYTHONPAGER = \"cat\", "
+    "GIT_EDITOR = \"true\", EDITOR = \"true\", VISUAL = \"true\" }}' "
+    "-c sandbox_workspace_write.network_access=true "
+    "-C . {combined_q}"
 )
 
 
