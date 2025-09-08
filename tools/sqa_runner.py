@@ -57,6 +57,17 @@ CODEX_CMD_TEMPLATE = (
     '-c model_reasoning_summary="detailed" '
     '-c model_verbosity="high" '
     '-c preferred_auth_method="chatgpt" '
+    # Make child processes non-interactive and avoid pagers/prompts
+    '-c shell_environment_policy.set={ '
+    'CI = "1", '
+    'GIT_TERMINAL_PROMPT = "0", '
+    'PIP_NO_INPUT = "1", '
+    'PIP_DISABLE_PIP_VERSION_CHECK = "1", '
+    'DEBIAN_FRONTEND = "noninteractive", '
+    'APT_LISTCHANGES_FRONTEND = "none", '
+    'PAGER = "cat", GIT_PAGER = "cat", PYTHONPAGER = "cat", '
+    'GIT_EDITOR = "true", EDITOR = "true", VISUAL = "true" '
+    '} '
     '-c sandbox_workspace_write.network_access=true '
     '-C . {combined_q}'
 )
@@ -130,6 +141,7 @@ def build_prompts(case: TestCase, sqa_plan_path: Path) -> Tuple[str, str]:
         f"Run SQA test {case.test_id} – {case.name}. "
         f"Steps: {steps_str}. "
         "Run commands from the repository root. "
+        "Run non-interactively (no prompts, no pagers); if a command may prompt, add the appropriate non-interactive flag and/or redirect stdin from /dev/null. "
         "Save outputs in place and summarize the result clearly. "
         "When done, print a final line: TEST STATUS: PASSED or FAILED."
     )
