@@ -31,6 +31,10 @@ from leanyolo.data.coco import coco80_class_names
 from leanyolo.utils.box_ops import unletterbox_coords
 from leanyolo.utils.letterbox import letterbox
 from leanyolo.utils.viz import draw_detections
+from leanyolo.models.yolov10.postprocess import (
+    decode_v10_official_topk as _decode_topk,
+    decode_v10_predictions as _decode_nms,
+)
 
 
 def parse_args():
@@ -42,6 +46,8 @@ def parse_args():
     ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
     ap.add_argument("--iou", type=float, default=0.45, help="IoU threshold")
     ap.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
+    ap.add_argument("--decode", choices=["topk", "nms"], default="topk", help="Decode mode: official top-k or class-wise NMS")
+    ap.add_argument("--max-dets", type=int, default=300, help="Maximum detections per image after decode")
     ap.add_argument("--save-dir", default="runs/infer/exp", help="Save directory")
     ap.add_argument("--classes-ann", default=None, help="Optional: COCO-style annotations JSON to derive class names")
     return ap.parse_args()
@@ -68,6 +74,8 @@ def infer_paths(
     conf: float = 0.25,
     iou: float = 0.45,
     device: str = "cpu",
+    decode: str = "topk",
+    max_dets: int = 300,
     save_dir: str = "runs/infer/exp",
     class_names: List[str] | None = None,
 ) -> List[Tuple[str, torch.Tensor]]:
@@ -102,11 +110,29 @@ def infer_paths(
             img = _imread_rgb(str(ipath))
             lb_img, gain, pad = letterbox(img, new_shape=imgsz)
             x = _to_tensor(lb_img, device_t)
-            # Set decode thresholds and run: forward gives raw; decode_forward returns detections
-            model.post_conf_thresh = conf
-            model.post_iou_thresh = iou
+            # Forward gives raw; decode based on requested mode
             raw = model(x)
-            dets = model.decode_forward(raw)[0][0]
+            if decode == "topk":
+                # Official top-k decode uses one-to-one branch when available
+                if isinstance(raw, dict):
+                    seq = raw.get("one2one", raw.get("one2many"))
+                else:
+                    seq = getattr(model, "_eval_branches", {}).get("one2one", raw)
+                dets = _decode_topk(seq, num_classes=len(cn), strides=(8, 16, 32), max_det=max_dets)[0][0]
+            else:
+                # Class-wise NMS decode uses one-to-many branch when available
+                if isinstance(raw, dict):
+                    seq = raw.get("one2many", raw.get("one2one"))
+                else:
+                    seq = getattr(model, "_eval_branches", {}).get("one2many", raw)
+                dets = _decode_nms(
+                    seq,
+                    num_classes=len(cn),
+                    strides=(8, 16, 32),
+                    conf_thresh=conf,
+                    iou_thresh=iou,
+                    max_det=max_dets,
+                )[0][0]
             # Scale back to original image size
             if dets.numel() > 0:
                 dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=img.shape[:2])
@@ -155,6 +181,8 @@ def main():
         conf=args.conf,
         iou=args.iou,
         device=args.device,
+        decode=args.decode,
+        max_dets=args.max_dets,
         save_dir=args.save_dir,
         class_names=class_names,
     )

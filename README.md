@@ -2,6 +2,8 @@
 
 The goal of this project is to provide a lean, easy-to-understand, and easy-to-integrate PyTorch implementation of YOLO models.
 
+It was mostly "vibe" coded with Codex CLI + GPT-5 High over three weekends in September 2025. I think it works, but your mileage may vary.
+
 ## Scope & Status
 
 This project focuses on providing a minimal, yet functional, implementation of YOLOv10 for object detection.
@@ -52,40 +54,31 @@ See `sqa.yaml` for the full Software Quality Assurance plan, including environme
 Use the PyTorch-style API to build and use models.
 
 ```python
-import torch
+import cv2, torch
 from leanyolo.models import get_model, list_models
 from leanyolo.data.coco import coco80_class_names
 
-# List available models (similar to torchvision.models)
-print(f"Available models: {list_models()}")
-# Output: ['yolov10n', 'yolov10s', 'yolov10m', 'yolov10b', 'yolov10l', 'yolov10x']
+# Build model with pretrained COCO weights (normalization handled inside)
+model = get_model("yolov10s", weights="PRETRAINED_COCO", class_names=coco80_class_names()).eval()
 
-# Load a model with pretrained COCO weights
-# The model handles input normalization (division by 255) internally.
-model = get_model(
-    "yolov10s",
-    weights="PRETRAINED_COCO",
-    class_names=coco80_class_names(),
-)
-model.eval()
+# Read image, convert to RGB, make CHW tensor
+img = cv2.cvtColor(cv2.imread("image.jpg"), cv2.COLOR_BGR2RGB)
+x = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0)
 
-# Example: Forward a dummy tensor
-# In eval mode, the model returns a list of decoded detections per image.
-# Each detection is a [N, 6] tensor: [x1, y1, x2, y2, score, class_index].
-x = torch.zeros(1, 3, 640, 640)
-model.post_conf_thresh = 0.25  # Confidence threshold
-model.post_iou_thresh = 0.45   # IoU threshold for Non-Maximum Suppression (NMS)
-
+# Forward + decode: returns [N,6] per image = [x1,y1,x2,y2,score,cls]
 with torch.no_grad():
-    detections = model(x)
-    print(detections[0].shape) # Shape of detections for the first image
+    dets = model.decode_forward(model(x))[0][0]
+
+# Print bounding boxes (no error checking)
+for x1, y1, x2, y2, score, cls in dets.cpu().numpy():
+    print(x1, y1, x2, y2, score, int(cls))
 ```
 
 ### Weight Loading
 
 -   **Official Sources:** Weights are downloaded from the official `THU-MIG/yolov10` repository releases.
 -   **Offline Usage:**
-    -   Set the `LEAN_YOLO_WEIGHTS_DIR` environment variable to a directory containing the `.pt` weight files.
+    -   Set the `LEANYOLO_WEIGHTS_DIR` environment variable to a directory containing the `.pt` weight files. Optionally set `LEANYOLO_CACHE_DIR` to control the cache location.
     -   Alternatively, pass a local file path directly to `get_model(weights="/path/to/weights.pt", ...)`.
 -   **Initialization:** If weights are not found or specified, the model will be initialized with random weights, and a warning will be issued.
 
@@ -101,6 +94,23 @@ This project provides simple and adaptable CLI scripts for common tasks.
 -   `tools/export_onnx.py`: Export YOLOv10 to ONNX with dynamic batch and fixed detections output.
 
 These scripts are designed to be easy to copy and modify for your own projects.
+
+### Decode Modes
+
+LeanYOLO supports two decode paths at inference/validation time:
+
+- Top-k (official YOLOv10):
+  - Uses the one-to-one branch and selects the top anchors by class score without NMS.
+  - Matches the official YOLOv10 evaluation pipeline (NMS-free), enabling exact parity.
+  - Ignores `--conf/--iou` thresholds; selection is controlled by `--max-dets`.
+  - Advantages: deterministic, export-friendly, fast, matches paper results.
+
+- NMS (class-wise):
+  - Uses the one-to-many branch, applies sigmoid class scores, confidence filtering, and per-class IoU NMS.
+  - Honors `--conf` and `--iou` thresholds and `--max-dets`.
+  - Advantages: familiar behavior and tunable thresholds for application needs.
+
+Both `tools/infer.py` and `tools/val.py` accept `--decode {topk,nms}` (default: `topk`).
 
 ## Datasets
 
@@ -214,11 +224,15 @@ python tools/infer.py \
   --model yolov10m \
   --weights runs/transfer/aquarium_yolov10m_640/best.pt \
   --imgsz 640 \
+  --decode topk \
+  --max-dets 300 \
   --conf 0.25 \
   --iou 0.45 \
   --device cuda \
   --save-dir runs/infer/aquarium_yolov10m_640_best
 ```
+
+To use NMS instead of top-k, set `--decode nms` and tune `--conf/--iou` as desired.
 
 ## Export to ONNX
 

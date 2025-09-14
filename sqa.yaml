@@ -88,6 +88,19 @@ tests:
       - "On success, print: TEST STATUS: PASSED"
     expected: JSON detections file saved and console summary shows mAP metrics for a 1‑image CPU run.
 
+  - id: FT-009
+    category: functional
+    name: tools/val.py decode modes (topk & nms)
+    steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
+      - Create or reuse a tiny COCO dataset (1 image)
+      - Run (topk): ./.venv/bin/python tools/val.py --images <tmp>/images --ann <tmp>/ann.json --weights none --device cpu --imgsz 64 --max-images 1 --decode topk --max-dets 50 --save-json runs/val/ft-009-topk.json
+      - Run (nms):  ./.venv/bin/python tools/val.py --images <tmp>/images --ann <tmp>/ann.json --weights none --device cpu --imgsz 64 --max-images 1 --decode nms  --conf 0.1 --iou 0.5 --max-dets 50 --save-json runs/val/ft-009-nms.json
+      - Verify: both JSON files exist and contain valid arrays
+      - "On success, print: TEST STATUS: PASSED"
+    expected: Both decode paths run without error; output JSON files are written.
+
   - id: FT-005
     category: functional
     name: tools/infer.py
@@ -96,6 +109,18 @@ tests:
       - ./.venv/bin/python tools/check_imports.py
       - Run on dog.jpg with pretrained weights
     expected: Output image saved to runs/infer/*; console lists detections
+
+  - id: FT-010
+    category: functional
+    name: tools/infer.py decode modes (topk & nms)
+    steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
+      - Run topk: ./.venv/bin/python tools/infer.py --source dog.jpg --model yolov10n --weights PRETRAINED_COCO --imgsz 64 --decode topk --max-dets 50 --device cpu --save-dir runs/infer/ft-010-topk
+      - Run nms:  ./.venv/bin/python tools/infer.py --source dog.jpg --model yolov10n --weights PRETRAINED_COCO --imgsz 64 --decode nms  --conf 0.1 --iou 0.5 --max-dets 50 --device cpu --save-dir runs/infer/ft-010-nms
+      - Verify: both output images exist
+      - "On success, print: TEST STATUS: PASSED"
+    expected: Both decode modes run and save annotated images without errors.
 
   - id: FT-006
     category: functional

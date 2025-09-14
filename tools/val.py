@@ -39,6 +39,10 @@ from leanyolo.utils.val_log import (
     collect_env_info,
     now_iso,
 )
+from leanyolo.models.yolov10.postprocess import (
+    decode_v10_official_topk as _decode_topk,
+    decode_v10_predictions as _decode_nms,
+)
 
 
 def parse_args():
@@ -50,8 +54,10 @@ def parse_args():
     ap.add_argument("--images", default=None, help="Optional: explicit images directory (COCO)")
     ap.add_argument("--ann", default=None, help="Optional: explicit annotations JSON (COCO)")
     ap.add_argument("--imgsz", type=int, default=640, help="Image size")
-    ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
-    ap.add_argument("--iou", type=float, default=0.65, help="IoU threshold")
+    ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold (NMS mode)")
+    ap.add_argument("--iou", type=float, default=0.65, help="IoU threshold (NMS mode)")
+    ap.add_argument("--decode", choices=["topk", "nms"], default="topk", help="Decode mode: official top-k or class-wise NMS")
+    ap.add_argument("--max-dets", type=int, default=300, help="Maximum detections per image after decode")
     ap.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     ap.add_argument("--max-images", type=int, default=None, help="Validate on first N images")
     ap.add_argument("--save-json", default=None, help="Optional: path to save detections JSON")
@@ -87,8 +93,10 @@ def validate_coco(
     weights: str | None = "PRETRAINED_COCO",
     data_root: str = "data/coco",
     imgsz: int = 640,
-    conf: float = 0.001,
+    conf: float = 0.25,
     iou: float = 0.65,
+    decode: str = "topk",
+    max_dets: int = 300,
     device: str = "cpu",
     max_images: int | None = None,
     save_json: str | None = None,
@@ -127,8 +135,6 @@ def validate_coco(
         input_norm_divide=[255.0, 255.0, 255.0],
     )
     model.to(device_t).eval()
-    model.post_conf_thresh = conf
-    model.post_iou_thresh = iou
 
     # Build mapping filename -> image_id for robust id assignment
     imgs_info = coco.loadImgs(coco.getImgIds())  # type: ignore
@@ -146,7 +152,27 @@ def validate_coco(
         x = torch.from_numpy(lb_img).to(device_t).permute(2, 0, 1).float().unsqueeze(0)
 
         raw = model(x)
-        dets = model.decode_forward(raw)[0][0]
+        if decode == "topk":
+            # Use one-to-one branch for official top-k decode
+            if isinstance(raw, dict):
+                seq = raw.get("one2one", raw.get("one2many"))
+            else:
+                seq = getattr(model, "_eval_branches", {}).get("one2one", raw)
+            dets = _decode_topk(seq, num_classes=len(cn), strides=(8, 16, 32), max_det=max_dets)[0][0]
+        else:
+            # Use one-to-many branch for NMS decode
+            if isinstance(raw, dict):
+                seq = raw.get("one2many", raw.get("one2one"))
+            else:
+                seq = getattr(model, "_eval_branches", {}).get("one2many", raw)
+            dets = _decode_nms(
+                seq,
+                num_classes=len(cn),
+                strides=(8, 16, 32),
+                conf_thresh=conf,
+                iou_thresh=iou,
+                max_det=max_dets,
+            )[0][0]
         # Scale boxes back if present
         if dets.numel() > 0:
             dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
@@ -296,6 +322,8 @@ def main():
         imgsz=args.imgsz,
         conf=args.conf,
         iou=args.iou,
+        decode=args.decode,
+        max_dets=args.max_dets,
         device=args.device,
         max_images=args.max_images,
         save_json=args.save_json,
