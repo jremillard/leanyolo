@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-SQA runner for lean-YOLO: runs one SQA test per Codex CLI invocation, with
-concurrency, structured logging, and rollup reporting.
+SQA runner for lean-YOLO: runs one SQA test per Codex CLI invocation,
+sequentially, with structured logging and rollup reporting.
 
 Usage examples:
   - List all discovered tests from sqa.yaml:
       ./.venv/bin/python tools/sqa_runner.py list --plan-file sqa.yaml
 
-  - Run all tests with default concurrency (2):
+  - Run all tests sequentially:
       ./.venv/bin/python tools/sqa_runner.py run --plan main
 
-  - Run only unit-test series in parallel (4 workers):
-      ./.venv/bin/python tools/sqa_runner.py run --plan main --tests UT-* --concurrency 4
+  - Filter tests by ID glob:
+      ./.venv/bin/python tools/sqa_runner.py run --plan main --tests UT-*
+
+  - Re-run only failed/missing from last run dir:
+      ./.venv/bin/python tools/sqa_runner.py run --plan main --failed-missing
 
   - Dry run to see the commands but not execute Codex:
       ./.venv/bin/python tools/sqa_runner.py run --plan main --dry-run --tee
@@ -37,6 +40,7 @@ import os
 import re
 import shlex
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
@@ -183,14 +187,22 @@ def _now_iso() -> str:
 
 
 async def _stream_pipe(reader: asyncio.StreamReader, sink, tee: bool, prefix: str = ""):
+    """Stream data from reader to sink without line-size limits.
+
+    Uses fixed-size chunks to avoid LimitOverrunError from very long lines.
+    """
     while True:
-        line = await reader.readline()
-        if not line:
+        try:
+            chunk = await reader.read(4096)
+        except Exception:
+            # In case of unexpected reader failure, stop gracefully
+            break
+        if not chunk:
             break
         try:
-            text = line.decode(errors="replace")
+            text = chunk.decode(errors="replace")
         except Exception:
-            text = str(line)
+            text = str(chunk)
         sink.write(text)
         sink.flush()
         if tee:
@@ -208,6 +220,39 @@ def _rm_tree(path: Path) -> None:
         for name in dirs:
             Path(root, name).rmdir()
     path.rmdir()
+
+
+def _merge_move_dir(src: Path, dst: Path) -> None:
+    """Merge contents of src into dst and remove src.
+
+    Existing files are left intact; only missing files/dirs are moved.
+    """
+    if not src.exists():
+        return
+    dst.mkdir(parents=True, exist_ok=True)
+    for root, dirs, files in os.walk(src):
+        rel = Path(root).relative_to(src)
+        target_root = dst / rel
+        target_root.mkdir(parents=True, exist_ok=True)
+        for name in files:
+            s = Path(root, name)
+            d = target_root / name
+            if not d.exists():
+                try:
+                    s.replace(d)
+                except Exception:
+                    # If move fails (e.g., cross-device), fallback to copy then unlink
+                    try:
+                        data = s.read_bytes()
+                        d.write_bytes(data)
+                        s.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+    # Attempt to remove the emptied source tree
+    try:
+        _rm_tree(src)
+    except Exception:
+        pass
 
 
 async def run_one_test(
@@ -321,7 +366,6 @@ async def run_tests(
     cmd_template: str,
     sqa_plan_path: Path,
     outdir: Path,
-    concurrency: int,
     timeout: int,
     tee: bool,
     success_regex: Optional[str],
@@ -334,7 +378,9 @@ async def run_tests(
     (run_root / "sqa_plan_path.txt").write_text(str(sqa_plan_path) + "\n", encoding="utf-8")
 
     if dry_run:
-        for c in cases:
+        total = len(cases)
+        for i, c in enumerate(cases, start=1):
+            print(f"[{i}/{total}] DRY-RUN {c.test_id} – {c.name}")
             test_msg, read_msg = build_prompts(c, sqa_plan_path)
             combined_msg = f"{test_msg}\n\n{read_msg}"
             template_ctx = {
@@ -353,32 +399,65 @@ async def run_tests(
             print(f"[DRY-RUN] {c.test_id}: {cmd_str}")
         return [], run_root
 
-    sem = asyncio.Semaphore(concurrency)
     results: List[dict] = []
-    report_lock = asyncio.Lock()
 
-    async def _task(c: TestCase):
-        async with sem:
-            meta = await run_one_test(
-                plan=plan,
-                case=c,
-                cmd_template=cmd_template,
-                sqa_plan_path=sqa_plan_path,
-                run_root=run_root,
-                timeout=timeout,
-                tee=tee,
-                success_regex=success_regex,
-            )
-            results.append(meta)
-            # Update report incrementally so partial results persist if interrupted
-            async with report_lock:
-                try:
-                    write_report(results, run_root, plan, cmd_template)
-                except Exception:
-                    # Best-effort; continue even if report writing fails
-                    pass
+    # Best-effort migration of any legacy top-level test directories before running
+    try:
+        for entry in outdir.iterdir():
+            if entry.is_dir() and TEST_ID_RE.match(entry.name):
+                dest = run_root / entry.name
+                if dest.exists():
+                    _merge_move_dir(entry, dest)
+                else:
+                    try:
+                        entry.rename(dest)
+                    except Exception:
+                        _merge_move_dir(entry, dest)
+    except FileNotFoundError:
+        pass
 
-    await asyncio.gather(*[_task(c) for c in cases])
+    # Run tests sequentially, updating the report after each test
+    total = len(cases)
+    for i, c in enumerate(cases, start=1):
+        print(f"[{i}/{total}] START {c.test_id} – {c.name}")
+        t0 = time.perf_counter()
+        meta = await run_one_test(
+            plan=plan,
+            case=c,
+            cmd_template=cmd_template,
+            sqa_plan_path=sqa_plan_path,
+            run_root=run_root,
+            timeout=timeout,
+            tee=tee,
+            success_regex=success_regex,
+        )
+        results.append(meta)
+        dt = time.perf_counter() - t0
+        test_dir = run_root / c.test_id
+        print(
+            f"[{i}/{total}] END   {c.test_id} -> {meta.get('status')} "
+            f"(exit={meta.get('exit_code')}, {dt:.1f}s). Artifacts: {test_dir}"
+        )
+        # Re-check and migrate any stray test dirs that may have been created at outdir
+        try:
+            for entry in outdir.iterdir():
+                if entry.is_dir() and TEST_ID_RE.match(entry.name):
+                    dest = run_root / entry.name
+                    if dest.exists():
+                        _merge_move_dir(entry, dest)
+                    else:
+                        try:
+                            entry.rename(dest)
+                        except Exception:
+                            _merge_move_dir(entry, dest)
+        except FileNotFoundError:
+            pass
+        try:
+            write_report(results, run_root, plan, cmd_template)
+        except Exception:
+            # Best-effort; continue even if report writing fails
+            pass
+
     return results, run_root
 
 
@@ -411,9 +490,8 @@ def write_report(results: Sequence[dict], run_root: Path, plan: str, cmd_templat
         tid = r.get("test_id")
         status = r.get("status")
         exit_code = r.get("exit_code")
-        # meta.json lives at runs/sqa/<plan>/<timestamp>/<test_id>/meta.json
+        # meta.json lives at runs/sqa/<plan>/<test_id>/meta.json
         # Derive relative path from run_root
-        # Locate meta.json by searching directories
         meta_rel = f"{tid}/meta.json"
         lines.append(f"| {tid} | {status} | {exit_code} | {meta_rel} |")
     (run_root / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -473,10 +551,52 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not selected:
         print("No tests match the given filters.", file=sys.stderr)
         return 2
+    print(f"Plan '{plan}': {len(selected)} test(s) selected.")
 
     # Prepare output dir
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
+
+    # Ensure plan scoped directory exists and migrate any legacy outputs that may
+    # have been written at the root (runs/sqa/<TEST_ID>) by older tools.
+    run_root_planned = outdir / plan
+    run_root_planned.mkdir(parents=True, exist_ok=True)
+    try:
+        for entry in outdir.iterdir():
+            # Detect legacy test directories like UT-101, FT-003, etc.
+            if entry.is_dir() and TEST_ID_RE.match(entry.name):
+                dest = run_root_planned / entry.name
+                if dest.exists():
+                    _merge_move_dir(entry, dest)
+                else:
+                    try:
+                        entry.rename(dest)
+                    except Exception:
+                        # Best-effort migration; continue if rename fails; fallback to merge
+                        _merge_move_dir(entry, dest)
+    except FileNotFoundError:
+        pass
+
+    # Optionally restrict to failed or missing tests in the previous run dir
+    if args.failed_missing:
+        run_root_prev = outdir / plan
+        want_ids = {c.test_id for c in selected}
+        filtered: List[TestCase] = []
+        for c in selected:
+            status_path = run_root_prev / c.test_id / "status.txt"
+            if not status_path.exists():
+                filtered.append(c)
+                continue
+            try:
+                status = status_path.read_text(encoding="utf-8", errors="ignore").strip()
+            except Exception:
+                status = ""
+            if status != "PASSED":
+                filtered.append(c)
+        selected = filtered
+        if not selected:
+            print(f"No failed or missing tests to run under {run_root_prev}.")
+            return 0
 
     # Run
     results: List[dict] = []
@@ -489,7 +609,6 @@ def cmd_run(args: argparse.Namespace) -> int:
                 cmd_template=CODEX_CMD_TEMPLATE,
                 sqa_plan_path=sqa_plan_path,
                 outdir=outdir,
-                concurrency=args.concurrency,
                 timeout=args.timeout,
                 tee=args.tee,
                 success_regex=args.success_regex,
@@ -509,7 +628,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Run SQA tests via Codex CLI with concurrency and logging.")
+    p = argparse.ArgumentParser(description="Run SQA tests via Codex CLI sequentially with structured logging.")
     sub = p.add_subparsers(dest="command", required=True)
 
     # list
@@ -528,8 +647,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="Run tests from sqa.yaml via Codex CLI")
     p_run.add_argument("--plan", required=True, help="Required plan label for outputs")
     p_run.add_argument("--tests", default=None, help="Comma-separated test IDs or globs (e.g., UT-001,UT-002 or UT-*)")
-    p_run.add_argument("--concurrency", type=int, default=2, help="Number of concurrent Codex commands")
     p_run.add_argument("--plan-file", default="sqa.yaml", help="Path to sqa.yaml file")
+    p_run.add_argument(
+        "--failed-missing",
+        action="store_true",
+        help="Only run tests that are missing or not PASSED under runs/sqa/<plan>",
+    )
     # No ability to override the Codex command; flags are fixed in the runner
     p_run.add_argument("--timeout", type=int, default=1800, help="Per-test timeout in seconds")
     p_run.add_argument("--outdir", default="runs/sqa", help="Base output directory")

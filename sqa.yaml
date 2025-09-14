@@ -1,3 +1,5 @@
+# Quick helper to re-run only failed or not-yet-run tests:
+#   python3 tools/sqa_runner.py run --plan main --failed-missing --plan-file sqa.yaml
 version: 1
 tests:
   # 3.0 Environment & Documentation Validation
@@ -11,12 +13,14 @@ tests:
       - ./.venv/bin/python -m pip install -r requirements.txt
       - ./.venv/bin/python tools/check_imports.py
     expected: Prints "OK" and exits 0; all imports are satisfied, no sudo needed.
-
+ 
   # 3.1 Unit Tests (consolidated)
   - id: UT-100
     category: unit
     name: Unit tests (CPU full)
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Set CUDA_VISIBLE_DEVICES=""
       - ./.venv/bin/python -m pytest -q -m "not fidelity"
       - ./.venv/bin/python -m pytest -q -m fidelity
@@ -26,6 +30,8 @@ tests:
     category: unit
     name: Unit tests (GPU full)
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Ensure at least one CUDA device is visible
       - ./.venv/bin/python -m pytest -q -m "not fidelity"
       - ./.venv/bin/python -m pytest -q -m fidelity
@@ -36,6 +42,8 @@ tests:
     category: functional
     name: prepare_aquarium (basic)
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Unzip AquariumDataset.zip to raw and prepare to data/aquarium
       - Run: ./.venv/bin/python tools/prepare_acquirium.py --zip data/AquariumDataset.zip --root data/aquarium --clean
     expected: COCO-style folder structure produced; train.json/val.json written
@@ -44,6 +52,8 @@ tests:
     category: functional
     name: prepare_aquarium (keep extract)
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Run: ./.venv/bin/python tools/prepare_acquirium.py --zip data/AquariumDataset.zip --root data/aquarium --clean --keep-extract
     expected: raw_extracted folder retained after prepare
 
@@ -51,6 +61,8 @@ tests:
     category: functional
     name: tools/train.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Train on a small dataset for 1 epoch with --batch-size 2
     expected: Checkpoint and log files appear in runs/train/*
 
@@ -58,6 +70,8 @@ tests:
     category: functional
     name: tools/val.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Validate pretrained model on a small dataset
     expected: JSON results and console summary generated
 
@@ -65,6 +79,8 @@ tests:
     category: functional
     name: tools/infer.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Run on dog.jpg with pretrained weights
     expected: Output image saved to runs/infer/*; console lists detections
 
@@ -72,6 +88,8 @@ tests:
     category: functional
     name: tools/transfer_learn_aquarium.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Train for 3 epochs on Aquarium data
     expected: Log shows decreasing loss; new checkpoint saved
 
@@ -79,6 +97,8 @@ tests:
     category: functional
     name: tools/download_all_pretrained.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Execute tools/download_all_pretrained.py without arguments
     expected: All six YOLOv10 weight files downloaded
 
@@ -86,6 +106,8 @@ tests:
     category: functional
     name: tools/convert_official_weights.py
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Convert official checkpoint to lean format
       - Load converted .pt with get_model
     expected: Converted .pt loads successfully
@@ -95,6 +117,8 @@ tests:
     category: integration
     name: Baseline train→val→infer
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Prepare dataset
       - Run tools/train.py for 1–2 epochs
       - Run tools/val.py
@@ -105,6 +129,8 @@ tests:
     category: integration
     name: Transfer learning loop
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Run tools/prepare_aquarium.py
       - Run tools/transfer_learn_aquarium.py for ≥5 epochs
       - Run tools/val.py
@@ -114,6 +140,8 @@ tests:
     category: integration
     name: Weight conversion + evaluation
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Convert official weights to lean format
       - Load with tools/val.py
       - Check mAP parity vs official results
@@ -123,5 +151,7 @@ tests:
     category: integration
     name: Map parity checker
     steps:
+      - Ensure environment is setup correctly in .env, fail test if not.
+      - ./.venv/bin/python tools/check_imports.py
       - Run tools/check_map_parity.py after inference and validation
     expected: Report indicates parity across model sizes

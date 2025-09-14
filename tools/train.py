@@ -166,7 +166,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Train a YOLOv10 model on a COCO-style dataset (baseline)."""
     args = parse_args()
-    device = torch.device(args.device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
+    # Resolve device without triggering CUDA initialization when CPU is requested
+    dev_arg = str(args.device).lower()
+    if dev_arg == "cpu":
+        device = torch.device("cpu")
+    elif dev_arg.startswith("cuda"):
+        device = torch.device(dev_arg if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cpu")
 
     # Dataset & loaders
     train_ds = CocoDetection(args.train_images, args.train_ann, imgsz=args.imgsz, augment=True)

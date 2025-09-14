@@ -22,7 +22,9 @@ def _exp_from_dfl(logits: torch.Tensor, reg_max: int) -> torch.Tensor:
     n = x.shape[0]
     probs = x.view(n, 4, reg_max).softmax(dim=2)
     bins = torch.arange(reg_max, device=x.device, dtype=x.dtype).view(1, 1, reg_max)
-    expect = torch.einsum("bcr, bcr -> bc", probs, bins.expand_as(probs))
+    # Avoid torch.einsum to prevent optional backend import issues.
+    # Equivalent to summing over the last dimension after elementwise multiply.
+    expect = (probs * bins.expand_as(probs)).sum(dim=2)
     return expect.squeeze(0) if squeeze_out else expect
 
 

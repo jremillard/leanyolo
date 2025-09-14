@@ -75,6 +75,8 @@ def parse_args():
     ap.add_argument("--notes", default="", help="Freeform notes for this run")
     # Removed: --latency-iters (FPS sampling now uses a fixed internal iteration count)
     ap.add_argument("--warmup-iters", type=int, default=5, help="Warmup iterations before FPS measurement")
+    # Optional: skip second model build for perf sampling (useful for custom class counts)
+    ap.add_argument("--skip-perf", action="store_true", help="Skip throughput measurement to avoid rebuilding model")
     return ap.parse_args()
 
 
@@ -302,7 +304,7 @@ def main():
 
     # Optional latency measurement (single image)
     perf = {"throughput_fps": 0.0}
-    if img_paths:
+    if img_paths and not getattr(args, "skip_perf", False):
         # Build model again to reuse already-loaded weights with same settings
         cn = coco80_class_names()
         model = get_model(
