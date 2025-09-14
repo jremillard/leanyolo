@@ -6,8 +6,8 @@ Scans Python files for top-level import statements and verifies that
 `importlib.util.find_spec(mod)` returns a spec without importing heavy modules.
 
 Usage:
-  ./\.venv/bin/python tools/check_imports.py
-  ./\.venv/bin/python tools/check_imports.py --paths leanyolo tools
+  ./.venv/bin/python tools/check_imports.py
+  ./.venv/bin/python tools/check_imports.py --paths leanyolo tools
 
 Exits with code 0 on success (all resolvable), 1 otherwise. Prints "OK" or a
 compact list of missing module names.

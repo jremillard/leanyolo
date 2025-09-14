@@ -13,7 +13,7 @@ Target layout:
     val.json
 
 Usage:
-  ./.venv/bin/python tools/prepare_acquirium.py \
+  ./.venv/bin/python tools/prepare_aquarium.py \
     --zip data/AquariumDataset.zip --root data/aquarium --clean
 
 Notes:

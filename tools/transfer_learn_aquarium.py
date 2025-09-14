@@ -211,7 +211,7 @@ def resolve_dataset_paths(args: argparse.Namespace) -> Tuple[Path, Path, Path | 
     if not train_images.exists() or not train_ann.exists():
         raise FileNotFoundError(
             f"Could not find training data. Expected images at '{train_images}' and annotations at '{train_ann}'.\n"
-            "Run tools/prepare_acquirium.py or provide --train-images/--train-ann explicitly."
+            "Run tools/prepare_aquarium.py or provide --train-images/--train-ann explicitly."
         )
     if not val_images.exists() or not val_ann.exists():
         val_images = None  # type: ignore

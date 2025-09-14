@@ -150,13 +150,24 @@ def validate_coco(
         # Scale boxes back if present
         if dets.numel() > 0:
             dets[:, :4] = unletterbox_coords(dets[:, :4], gain=gain, pad=pad, to_shape=orig_shape)
+
+        # Resolve image_id early for both viz and JSON
+        image_id = int(fname_to_id.get(Path(p).name, -1))
+        if image_id == -1:
+            # Fallback: try stem lookup without extension
+            stem = Path(p).stem
+            for fn, iid in fname_to_id.items():
+                if Path(fn).stem == stem:
+                    image_id = int(iid)
+                    break
+
         # Optional visualization save
         if save_viz_dir:
             from leanyolo.utils.viz import draw_detections
             bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             vis = draw_detections(bgr, dets, class_names=cn)
             # Choose output filename format
-            if viz_name == "id":
+            if viz_name == "id" and image_id != -1:
                 out_name = f"{image_id}.jpg"
             elif viz_name == "prefix":
                 fname = Path(p).name
@@ -169,19 +180,12 @@ def validate_coco(
                 print(f"[viz] Failed to write: {out_path}")
             else:
                 print(f"[viz] Saved: {out_path} ({int(dets.shape[0])} dets)")
+
         # Convert to COCO json
         # COCO expects [x, y, w, h] with category_id being dataset category IDs
-        image_id = int(fname_to_id.get(Path(p).name, -1))
         if image_id == -1:
-            # Fallback: try stem lookup without extension
-            stem = Path(p).stem
-            # Try to find first match by stem
-            for fn, iid in fname_to_id.items():
-                if Path(fn).stem == stem:
-                    image_id = int(iid)
-                    break
-            if image_id == -1:
-                continue
+            # Could not map filename to image id; skip
+            continue
         if dets.numel() > 0:
             for x1, y1, x2, y2, score, cls in dets.cpu().numpy():
                 w, h = x2 - x1, y2 - y1

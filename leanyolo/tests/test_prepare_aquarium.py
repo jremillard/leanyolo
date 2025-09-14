@@ -46,14 +46,14 @@ def _build_zip(zip_path: Path, with_splits=True, with_json=True) -> None:
 
 
 def _run_prepare(tmp_path: Path, *, keep_extract=False, clean=False, zip_has_json=True, zip_has_splits=True):
-    from tools import prepare_acquirium as prep
+    from tools import prepare_aquarium as prep
 
     root = tmp_path / "aquarium_out"
     zip_path = tmp_path / "AquariumDataset.zip"
     _build_zip(zip_path, with_splits=zip_has_splits, with_json=zip_has_json)
 
     argv = [
-        "prepare_acquirium.py",
+        "prepare_aquarium.py",
         "--zip",
         str(zip_path),
         "--root",
@@ -114,12 +114,12 @@ def test_prepare_clean_removes_extra(tmp_path: Path):
 
 
 def test_prepare_missing_zip(tmp_path: Path):
-    from tools import prepare_acquirium as prep
+    from tools import prepare_aquarium as prep
     import sys
 
     root = tmp_path / "aquarium_out"
     argv = [
-        "prepare_acquirium.py",
+        "prepare_aquarium.py",
         "--zip",
         str(tmp_path / "does_not_exist.zip"),
         "--root",
@@ -137,14 +137,14 @@ def test_prepare_missing_zip(tmp_path: Path):
 
 def test_prepare_missing_split_dirs(tmp_path: Path):
     # Zip without train/val dirs
-    from tools import prepare_acquirium as prep
+    from tools import prepare_aquarium as prep
     import sys
 
     root = tmp_path / "aquarium_out"
     zip_path = tmp_path / "AquariumDataset.zip"
     _build_zip(zip_path, with_splits=False)
     argv = [
-        "prepare_acquirium.py",
+        "prepare_aquarium.py",
         "--zip",
         str(zip_path),
         "--root",
@@ -164,4 +164,3 @@ def test_prepare_missing_jsons(tmp_path: Path):
     # Zip with images but no COCO jsons
     code, _ = _run_prepare(tmp_path, zip_has_json=False)
     assert code == 4
-

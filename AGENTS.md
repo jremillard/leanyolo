@@ -12,7 +12,7 @@ leanyolo/
   tools/
     train.py  (baseline trainer)
     transfer_learn_aquarium.py  (example transfer learning script)
-    prepare_coco.py  prepare_acquirium.py  ...
+    prepare_coco.py  prepare_aquarium.py  ...
   runs/  (outputs: logs, checkpoints, visualizations)
   references/  (papers + official repos)
   requirements.txt
