@@ -337,12 +337,19 @@ def main():
     # Optional latency measurement (single image)
     perf = {"throughput_fps": 0.0}
     if img_paths and not getattr(args, "skip_perf", False):
-        # Build model again to reuse already-loaded weights with same settings
-        cn = coco80_class_names()
+        # Build a model for throughput sampling using the same class space as the dataset
+        # Derive class names from the annotations JSON when available; otherwise fall back to COCO-80
+        try:
+            with open(ann_json_p, 'r', encoding='utf-8') as f:
+                _data = json.load(f)
+            _cats = sorted(_data.get('categories', []), key=lambda c: c.get('id', 0))
+            cn_perf = [c.get('name', str(i)) for i, c in enumerate(_cats)] or coco80_class_names()
+        except Exception:
+            cn_perf = coco80_class_names()
         model = get_model(
             args.model,
             weights=None if args.weights in {"", "none", "None", "NONE"} else args.weights,
-            class_names=cn,
+            class_names=cn_perf,
             input_norm_subtract=[0.0, 0.0, 0.0],
             input_norm_divide=[255.0, 255.0, 255.0],
         ).to(args.device)
