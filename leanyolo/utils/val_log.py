@@ -4,7 +4,7 @@ import csv
 import platform
 import socket
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional
 
@@ -121,4 +121,12 @@ def append_row(path: Path, values: Mapping[str, object], *, columns: Iterable[st
 
 
 def now_iso() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    """Return current UTC time in ISO 8601 format without microseconds.
+
+    Uses timezone-aware :func:`datetime.now` with :data:`datetime.UTC` to avoid
+    the deprecated :func:`datetime.utcnow`. The trailing ``"+00:00"`` is
+    replaced with ``"Z"`` for brevity.
+    """
+    return (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
