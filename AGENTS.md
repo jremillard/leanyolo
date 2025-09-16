@@ -1,23 +1,31 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Code lives under `leanyolo/` (modules are WIP but follow this layout):
+- Code lives under `leanyolo/`:
 ```
 leanyolo/
   leanyolo/
-    models/yolov10/{backbone.py, neck.py, head.py, model.py}
-    data/{dataset.py, transforms.py, collate.py}
-    utils/{metrics.py, box_ops.py, losses.py, viz.py}
-    tests/{test_*.py, fidelity/}
+    adapters/  (integration stubs)
+    data/{coco.py, coco_simple.py}
+    engine/  (placeholder for future training loops)
+    models/
+      registry.py  (``get_model`` entrypoints)
+      yolov10/{backbone.py, neck.py, head.py, losses.py, postprocess.py,
+              yolov10[n|s|m|b|l|x].py, export.py, layers.py, keymap.py, remap.py}
+    tests/{test_*.py, fidelity/, data/, reports/}
+    utils/{box_ops.py, keymap.py, letterbox.py, remap.py, tal.py,
+           val_log.py, viz.py, weights.py}
   tools/
     train.py  (baseline trainer)
-    transfer_learn_aquarium.py  (example transfer learning script)
-    prepare_coco.py  prepare_aquarium.py  ...
-  runs/  (outputs: logs, checkpoints, visualizations)
+    val.py, infer.py, convert_official_weights.py, export_onnx.py
+    transfer_learn_aquarium.py, prepare_coco.py, prepare_aquarium.py, ...
+  runs/        (logs, checkpoints, visualizations)
   references/  (papers + official repos)
-  requirements.txt
+  reports/     (analysis notebooks + exports)
+  weights/     (local cached weights)
+  requirements.txt, sqa.yaml, README.md, ...
 ```
-- YOLOv10-only: backbone, neck, head, and end-to-end model.
+- YOLOv10-only: backbone, neck, head, losses, and end-to-end models live in `leanyolo/models/yolov10`.
 - No YAML configs; prefer Python constructors and CLI flags.
 
 ## Build, Test, and Development Commands
