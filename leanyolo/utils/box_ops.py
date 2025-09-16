@@ -1,3 +1,12 @@
+"""Common bounding box operations.
+
+This module collects small utilities used across the project for converting
+between ``xyxy`` and ``xywh`` formats, computing IoU/area, performing greedy
+non‑maximum suppression, and adjusting box coordinates after letterboxing.
+All functions expect and return ``torch.Tensor`` objects with shape
+``[N, 4]`` unless otherwise noted.
+"""
+
 from __future__ import annotations
 
 from typing import Tuple
