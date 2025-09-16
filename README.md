@@ -112,6 +112,12 @@ LeanYOLO supports two decode paths at inference/validation time:
 
 Both `tools/infer.py` and `tools/val.py` accept `--decode {topk,nms}` (default: `topk`).
 
+## Sample Detections
+
+| Pretrained COCO (Dog) | Aquarium Transfer (Fish) |
+| :-------------------- | :----------------------- |
+| ![COCO dog inference](dog_viz.jpg) | ![Aquarium fish inference](aquarium_fish_viz.jpg) |
+
 ## Datasets
 
 The primary supported annotation format is **COCO JSON**. The project expects the standard COCO dataset structure:
