@@ -1,3 +1,12 @@
+"""Utilities for remapping official YOLOv10 checkpoints.
+
+The official YOLOv10 weights released by THU-MIG store layers in a
+sequential "model.{idx}." format.  LeanYOLO uses structured module names
+(`backbone.c2`, `neck.p4_p5_c2f`, ...).  This module defines lookup tables
+for those indices and helpers to translate the original state dictionary to
+our naming scheme.
+"""
+
 from __future__ import annotations
 
 from typing import Dict
@@ -32,10 +41,17 @@ HEAD_MAP = {
 
 
 def remap_official_keys_by_name(src_sd: Dict[str, object], dst_state_keys: Dict[str, object]) -> Dict[str, object]:
-    """Map official YOLOv10 checkpoint keys to our lean model keys by layer index mapping.
+    """Translate an official YOLOv10 state dict to LeanYOLO naming.
 
-    This function translates prefixes like 'model.4.' to 'backbone.c4.' etc.
-    Only keys present in dst_state_keys are returned.
+    Args:
+        src_sd: State dictionary as loaded from the official release.
+        dst_state_keys: Keys from ``model.state_dict()`` of the target model.
+
+    Returns:
+        Mapping from LeanYOLO parameter names to tensors present in ``src_sd``.
+
+    Only parameters whose remapped names exist in ``dst_state_keys`` are
+    included in the output.
     """
     out: Dict[str, object] = {}
 

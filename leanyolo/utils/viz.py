@@ -1,3 +1,10 @@
+"""Visualization helpers for detection results.
+
+Currently provides a small wrapper around OpenCV for drawing the
+``[x1, y1, x2, y2, score, cls]`` tensors returned by model decoders on top
+of BGR images.
+"""
+
 from __future__ import annotations
 
 from typing import List, Tuple
