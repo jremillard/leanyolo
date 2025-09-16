@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import warnings
+
 from leanyolo.utils import val_log as V
 
 
@@ -47,7 +49,9 @@ def test_ensure_csv_migrates_existing_header(tmp_path):
 def test_collect_env_and_now_iso():
     env = V.collect_env_info(device="cpu")
     assert set(["commit", "host", "device", "device_name"]).issubset(env)
-    # timestamp format quick check
-    ts = V.now_iso()
+    # timestamp format quick check and ensure no deprecation warning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("error", DeprecationWarning)
+        ts = V.now_iso()
     assert ts.endswith("Z") and "T" in ts
 
