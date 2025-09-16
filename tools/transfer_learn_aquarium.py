@@ -22,7 +22,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import cv2
 import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
@@ -35,6 +34,50 @@ from leanyolo.models.yolov10.losses import detection_loss_v10
 from leanyolo.utils.viz import draw_detections
 from leanyolo.utils.box_ops import unletterbox_coords
 from leanyolo.utils.letterbox import letterbox
+
+
+def _device_to_str(device: torch.device) -> str:
+    if device.type in {"cuda", "mps"} and device.index is not None:
+        return f"{device.type}:{device.index}"
+    return device.type
+
+
+def resolve_device(device_arg: str) -> Tuple[torch.device, str, str | None]:
+    """Map a user-provided device string to an available torch.device.
+
+    Returns the resolved device, a short label for logging, and an optional
+    warning message when we fall back to CPU because the requested backend is
+    unavailable or invalid.
+    """
+    requested = str(device_arg or "").strip()
+    if not requested:
+        requested = "cpu"
+    try:
+        device = torch.device(requested)
+    except (TypeError, ValueError, RuntimeError):
+        return torch.device("cpu"), "cpu", f"Invalid device '{device_arg}', falling back to CPU"
+
+    if device.type == "cuda":
+        if not torch.cuda.is_available():
+            return torch.device("cpu"), "cpu", f"CUDA not available for '{device_arg}', falling back to CPU"
+        # torch.device normalizes indices; ensure str reflects requested type/index
+        return device, _device_to_str(device), None
+
+    if device.type == "mps":
+        has_mps = bool(getattr(torch.backends, "mps", None)) and torch.backends.mps.is_available()
+        if not has_mps:
+            return torch.device("cpu"), "cpu", f"MPS not available for '{device_arg}', falling back to CPU"
+        return device, _device_to_str(device), None
+
+    if device.type == "cpu":
+        return device, "cpu", None
+
+    # For other device types (e.g., "xpu"), verify availability if possible, else fall back.
+    if device.type == "xpu":
+        has_xpu = bool(getattr(torch, "xpu", None)) and torch.xpu.is_available()
+        if not has_xpu:
+            return torch.device("cpu"), "cpu", f"XPU not available for '{device_arg}', falling back to CPU"
+    return device, _device_to_str(device), None
 
 
 def seed_everything(seed: int = 42) -> None:
@@ -81,7 +124,7 @@ def evaluate(
     ann_json: str | Path,
     *,
     imgsz: int,
-    device: str,
+    device: str | torch.device,
     conf: float = 0.25,
     iou: float = 0.65,
     max_images: int | None = None,
@@ -97,10 +140,12 @@ def evaluate(
     """
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
+    import cv2
+
     model.eval()
     model.post_conf_thresh = conf
     model.post_iou_thresh = iou
-    device_t = torch.device(device)
+    device_t = device if isinstance(device, torch.device) else torch.device(device)
     model.to(device_t)
     coco = COCO(str(ann_json))
     cats = sorted(coco.loadCats(coco.getCatIds()), key=lambda c: c["id"])  # type: ignore
@@ -262,6 +307,8 @@ def maybe_freeze_and_reset(model: torch.nn.Module, *, freeze_backbone: bool, hea
 
 
 def save_train_viz(*, save_dir: Path, step: int, imgs: torch.Tensor, dets_batched: List[torch.Tensor], class_names: List[str]) -> Path | None:
+    import cv2
+
     viz_dir = save_dir / "viz"
     viz_dir.mkdir(parents=True, exist_ok=True)
     if imgs.ndim != 4 or imgs.shape[0] == 0:
@@ -311,8 +358,7 @@ def main() -> None:
     start_wall = time.time()
     start_iso = datetime.now().isoformat(timespec="seconds")
     seed_everything(args.seed)
-
-    device = torch.device(args.device if torch.cuda.is_available() or args.device == "cpu" else "cpu")
+    device, device_label, device_warn = resolve_device(args.device)
     train_images, train_ann, val_images, val_ann = resolve_dataset_paths(args)
 
     save_dir = Path(args.save_dir)
@@ -323,6 +369,8 @@ def main() -> None:
         logger.info("ARGS: " + json.dumps(vars(args), sort_keys=True))
     except Exception:
         logger.info("ARGS: " + repr(args))
+    if device_warn:
+        logger.warning(device_warn)
 
     train_loader, train_ds, val_loader, val_ds = build_dataloaders(
         train_images, train_ann, val_images, val_ann,
@@ -332,7 +380,7 @@ def main() -> None:
 
     class_names = load_class_names_from_coco(train_ann)
     weights_arg = None if (isinstance(args.weights, str) and args.weights.lower() in {"none", "null", ""}) else args.weights
-    logger.info(f"Device={device} | model={args.model} | imgsz={args.imgsz} | weights={weights_arg or 'None'} | nc={len(class_names)}")
+    logger.info(f"Device={device_label} | model={args.model} | imgsz={args.imgsz} | weights={weights_arg or 'None'} | nc={len(class_names)}")
     try:
         n_train = len(train_ds)
     except Exception:
@@ -448,7 +496,17 @@ def main() -> None:
         do_eval = val_images is not None and val_ann is not None
         if do_eval and (not args.debug or ((epoch + 1) % max(1, args.debug_eval_every) == 0)):
             try:
-                stats = evaluate(model, images_dir=val_images or "", ann_json=val_ann or "", imgsz=args.imgsz, device=args.device, conf=args.eval_conf, iou=args.eval_iou, max_images=(args.debug_val_size if args.debug else None), progress=False)
+                stats = evaluate(
+                    model,
+                    images_dir=val_images or "",
+                    ann_json=val_ann or "",
+                    imgsz=args.imgsz,
+                    device=device,
+                    conf=args.eval_conf,
+                    iou=args.eval_iou,
+                    max_images=(args.debug_val_size if args.debug else None),
+                    progress=False,
+                )
                 logger.info("[val] " + ", ".join(f"{k}={v:.5f}" for k, v in stats.items()))
             except Exception as e:
                 logger.info(f"[val] evaluation failed: {e}")
